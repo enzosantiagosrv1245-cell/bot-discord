@@ -62,13 +62,16 @@ async function handleVerificacaoBtn(client, interaction) {
 
   // Já verificado
   if (member.roles.cache.has(CARGO_VERIFICADO)) {
-    return interaction.reply({ content: '✅ Você já está verificado!', ephemeral: true });
+    return interaction.reply({ content: '✅ Você já está verificado!', flags: 64 }).catch(() => {});
   }
 
   // Já tem sessão ativa
   if (sessoes.has(member.id)) {
-    return interaction.reply({ content: '⏳ Você já tem uma verificação em andamento. Verifique sua DM!', ephemeral: true });
+    return interaction.reply({ content: '⏳ Você já tem uma verificação em andamento. Verifique sua DM!', flags: 64 }).catch(() => {});
   }
+
+  // Deferimos imediatamente para evitar "Unknown interaction" caso a DM demore
+  await interaction.deferReply({ flags: 64 }).catch(() => {});
 
   const { pergunta, resposta } = gerarConta();
   sessoes.set(member.id, { resposta, tentativas: 0 });
@@ -95,14 +98,13 @@ async function handleVerificacaoBtn(client, interaction) {
 
   try {
     await member.send({ embeds: [dmEmbed] });
-    await interaction.reply({ content: '📩 Te enviei uma DM com as instruções! Verifique sua caixa de mensagens.', ephemeral: true });
+    await interaction.editReply({ content: '📩 Te enviei uma DM com as instruções! Verifique sua caixa de mensagens.' }).catch(() => {});
   } catch {
     sessoes.delete(member.id);
     clearTimeout(timer);
-    await interaction.reply({
+    await interaction.editReply({
       content: '❌ Não consegui te enviar DM! Abra suas DMs em **Configurações → Privacidade** e tente novamente.',
-      ephemeral: true
-    });
+    }).catch(() => {});
   }
 }
 
@@ -156,14 +158,7 @@ async function handleDMResposta(client, message) {
       clearTimeout(sessao.timer);
       sessoes.delete(message.author.id);
 
-      // Kictar de todos os servidores permitidos
-      for (const guildId of client.ALLOWED_GUILDS) {
-        const guild = client.guilds.cache.get(guildId);
-        if (!guild) continue;
-        const member = guild.members.cache.get(message.author.id) || await guild.members.fetch(message.author.id).catch(() => null);
-        if (member) await member.kick('Falhou na verificação anti-raid 3 vezes.').catch(() => {});
-      }
-
+      // Manda DM ANTES de kickar (depois não tem servidor em comum)
       const embed = new EmbedBuilder()
         .setColor(0xE53935)
         .setTitle('❌ Verificação falhou')
@@ -171,7 +166,15 @@ async function handleDMResposta(client, message) {
         .setTimestamp()
         .setFooter({ text: 'TASD — Todos Aqui São Donos' });
 
-      message.reply({ embeds: [embed] });
+      await message.reply({ embeds: [embed] }).catch(() => {});
+
+      // Kictar depois da DM
+      for (const guildId of client.ALLOWED_GUILDS) {
+        const guild = client.guilds.cache.get(guildId);
+        if (!guild) continue;
+        const member = guild.members.cache.get(message.author.id) || await guild.members.fetch(message.author.id).catch(() => null);
+        if (member) await member.kick('Falhou na verificação anti-raid 3 vezes.').catch(() => {});
+      }
 
     } else {
       const restantes = 3 - sessao.tentativas;

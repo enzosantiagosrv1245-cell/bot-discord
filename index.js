@@ -242,7 +242,10 @@ client.on('ready', async () => {
 
   const rest = new REST({ version: '10' }).setToken(TOKEN);
   for (const guildId of ALLOWED_GUILDS) {
-    await rest.put(Routes.applicationGuildCommands(CLIENT_ID, guildId), { body: slashCommands }).catch(console.error);
+    const g = client.guilds.cache.get(guildId);
+    if (!g) { console.warn('[TASD Bot] Guild ' + guildId + ' não encontrada, pulando slash commands.'); continue; }
+    await rest.put(Routes.applicationGuildCommands(CLIENT_ID, guildId), { body: slashCommands })
+      .catch(e => console.warn('[TASD Bot] Erro slash em ' + guildId + ': ' + e.message));
   }
   console.log('[TASD Bot] Slash commands registrados.');
 
