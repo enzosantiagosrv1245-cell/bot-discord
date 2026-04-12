@@ -7,7 +7,7 @@ const express = require('express');
 const PREFIX = 'r.';
 const TOKEN = process.env.TOKEN;
 const CLIENT_ID = process.env.CLIENT_ID;
-const ALLOWED_GUILDS = ['1464332991747588285', '1275809598242291773','1491441256323223712'];
+const ALLOWED_GUILDS = ['1464332991747588285', '1275809598242291773'];
 const CENSURA_OWNER = '1384263522422231201';
 const PARCERIA_STAFF = '1489775575802315045';
 const COR = 0xE53935;
@@ -81,6 +81,7 @@ client.PARCERIA_STAFF = PARCERIA_STAFF;
 const economia = require('./economia');
 const diversao = require('./diversao');
 const utilidades = require('./utilidades');
+const verificacao = require('./verificacao');
 
 // ─── DB simples ───────────────────────────────────────────────────────────────
 const DB_PATH = path.join(__dirname, 'dados.json');
@@ -189,6 +190,21 @@ client.on('messageCreate', async (message) => {
   // Comandos de utilidades
   const cmdUtil = utilidades.commands[commandName];
   if (cmdUtil) return cmdUtil(client, message, args);
+
+  // Comando de setup de verificação
+  if (commandName === 'setupverificacao') return verificacao.setupVerificacao(client, message, args);
+});
+
+// ─── DM: respostas de verificação ────────────────────────────────────────────
+client.on('messageCreate', async (message) => {
+  if (message.author.bot || message.guild) return;
+  verificacao.handleDMResposta(client, message);
+});
+
+// ─── Membro entrou no servidor ────────────────────────────────────────────────
+client.on('guildMemberAdd', async (member) => {
+  if (!client.ALLOWED_GUILDS.includes(member.guild.id)) return;
+  verificacao.handleMembroEntrou(member);
 });
 
 // ─── Cargos por nível ─────────────────────────────────────────────────────────
@@ -241,6 +257,12 @@ client.on('ready', async () => {
 
 // ─── Slash command handler ────────────────────────────────────────────────────
 client.on('interactionCreate', async (interaction) => {
+  // Botão de verificação pode vir de guild permitida
+  if (interaction.isButton() && interaction.customId === 'verificar_membro') {
+    if (!ALLOWED_GUILDS.includes(interaction.guildId)) return;
+    return verificacao.handleVerificacaoBtn(client, interaction);
+  }
+
   if (!ALLOWED_GUILDS.includes(interaction.guildId)) return;
 
   if (interaction.isStringSelectMenu()) {
