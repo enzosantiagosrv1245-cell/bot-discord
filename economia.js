@@ -83,9 +83,7 @@ commands['banco'] = async (client, msg, args) => {
 commands['depositar'] = async (client, msg, args) => {
   const db = client.loadDB();
   const user = client.getUser(db, msg.author.id);
-  const valor = args[0] === 'tudo' ? user.moedas : parseInt(args[0]);
-  if (!valor || valor <= 0) return msg.reply({ embeds: [embed('❌ Erro', 'Informe um valor válido.')] });
-  if (valor > user.moedas) return msg.reply({ embeds: [embed('❌ Sem saldo', `Você tem apenas ${moedaFmt(user.moedas)} na carteira.`)] });
+  const valor = args[0] === 'tudo' || args[0] === 'all' ? user.moedas : parseInt(args[0]);
   user.moedas -= valor;
   user.banco += valor;
   client.saveDB(db);
@@ -96,7 +94,7 @@ commands['depositar'] = async (client, msg, args) => {
 commands['sacar'] = async (client, msg, args) => {
   const db = client.loadDB();
   const user = client.getUser(db, msg.author.id);
-  const valor = args[0] === 'tudo' ? user.banco : parseInt(args[0]);
+  const valor = args[0] === 'tudo' || args[0] === 'all' ? user.banco : parseInt(args[0]);
   if (!valor || valor <= 0) return msg.reply({ embeds: [embed('❌ Erro', 'Informe um valor válido.')] });
   if (valor > user.banco) return msg.reply({ embeds: [embed('❌ Sem saldo', `Você tem apenas ${moedaFmt(user.banco)} no banco.`)] });
   user.banco -= valor;
@@ -270,7 +268,7 @@ commands['vender'] = async (client, msg, args) => {
   const user = client.getUser(db, msg.author.id);
   if (!user.inventario || user.inventario.length === 0) return msg.reply({ embeds: [embed('❌ Inventário vazio', 'Você não tem itens para vender.')] });
   const nome = args.join(' ').toLowerCase();
-  if (nome === 'tudo') {
+  if (nome === 'tudo' || nome === 'all') {
     const total = user.inventario.reduce((a, b) => a + b.valor, 0);
     user.moedas += total;
     const qtd = user.inventario.length;

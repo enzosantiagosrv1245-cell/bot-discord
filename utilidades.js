@@ -247,45 +247,88 @@ commands['rankingxp'] = async (client, msg, args) => {
 commands['ajuda'] = async (client, msg, args) => {
   const e = new EmbedBuilder()
     .setColor(COR)
-    .setTitle('📖 Comandos — TASD Bot')
-    .setDescription('Prefixo: `r.` ou `/`\nEntre `[]` estão as abreviações disponíveis.')
+    .setTitle('👑 TASD Bot — Comandos')
+    .setDescription('Prefixo: `r.` ou `/` — Abreviações entre parênteses.')
     .addFields(
       {
-        name: '💰 Economia',
+        name: '💰 Economia — Ganhar dinheiro',
         value: [
-          '`banco` `dep` `sac` `daily`',
-          '`work` `crime` `roubar`',
-          '`bet` `fish` `mine` `plant`',
-          '`sell` `inv` `shop` `buy`',
-          '`pay` `rasp` `lot` `top`',
+          '`daily` — Recompensa diária',
+          '`work` *(trabalhar)* — Trabalhe e ganhe moedas',
+          '`crime` — Tente a sorte no crime',
+          '`roubar @user` — Roube moedas de alguém',
+        ].join('\n'),
+        inline: false,
+      },
+      {
+        name: '💳 Economia — Banco',
+        value: [
+          '`banco` *(bal/saldo)* — Veja seu saldo',
+          '`dep <valor/all>` *(depositar)* — Deposite no banco',
+          '`sac <valor/all>` *(sacar)* — Saque do banco',
+          '`pay @user <valor>` *(transferir/tf)* — Transfira moedas',
+        ].join('\n'),
+        inline: false,
+      },
+      {
+        name: '🎰 Economia — Apostas & Sorte',
+        value: [
+          '`bet <valor>` *(apostar/slot)* — Caça-níquel',
+          '`rasp` *(raspadinha)* — Compre uma raspadinha',
+          '`lot` *(loteria)* — Bilhete da loteria semanal',
+        ].join('\n'),
+        inline: false,
+      },
+      {
+        name: '🌾 Economia — Recursos',
+        value: [
+          '`fish` *(pescar)* — Pesque itens',
+          '`mine` *(minerar)* — Minere recursos',
+          '`plant` *(plantar)* — Plante e colha',
+          '`sell <item/all>` *(vender)* — Venda itens do inventário',
+          '`inv` *(inventario/bag)* — Veja seu inventário',
+        ].join('\n'),
+        inline: false,
+      },
+      {
+        name: '🏪 Economia — Loja',
+        value: [
+          '`shop` *(loja)* — Veja os itens disponíveis',
+          '`buy <id>` *(comprar)* — Compre um item da loja',
+          '`top` *(ranking/lb)* — Ranking de moedas',
+        ].join('\n'),
+        inline: false,
+      },
+      {
+        name: '⭐ Níveis',
+        value: [
+          '`p [@user]` *(perfil)* — Veja seu perfil',
+          '`xp [@user]` — Veja o XP de alguém',
+          '`rankingxp` — Ranking de níveis',
         ].join('\n'),
         inline: false,
       },
       {
         name: '🎮 Diversão',
-        value: '`8ball` `dado` `moeda` `ship` `marry` `div` `verdade` `dare` `forca` `l`',
-        inline: false,
-      },
-      {
-        name: '⭐ Níveis',
-        value: '`p` `xp` `rankingxp`',
+        value: [
+          '`verdade` *(truth)* — Receba uma verdade',
+          '`dare` *(desafio)* — Receba um desafio',
+          '`ship @u1 @u2` — Compatibilidade entre dois usuários',
+          '`marry @user` — Case com alguém',
+          '`div` *(divorciar)* — Divorcie-se',
+          '`forca` — Inicie um jogo de forca · `l <letra>` para jogar',
+          '`8ball <pergunta>` · `dado` · `moeda`',
+        ].join('\n'),
         inline: false,
       },
       {
         name: '🛠️ Utilidades',
-        value: '`ticket` `ui` `si` `clear` `falar`',
-        inline: false,
-      },
-      {
-        name: '📌 Abreviações completas',
         value: [
-          '`dep` = depositar • `sac` = sacar • `work` = trabalhar',
-          '`bet/slot` = apostar • `fish` = pescar • `mine` = minerar',
-          '`plant` = plantar • `sell` = vender • `inv` = inventário',
-          '`shop` = loja • `buy` = comprar • `pay/tf` = transferir',
-          '`rasp` = raspadinha • `lot` = loteria • `top/lb` = ranking',
-          '`marry` = casar • `div` = divorciar • `dare` = desafio',
-          '`ui` = userinfo • `si` = serverinfo • `p` = perfil',
+          '`ticket` — Abre o painel de suporte',
+          '`ui [@user]` *(userinfo)* — Info de um usuário',
+          '`si` *(serverinfo)* — Info do servidor',
+          '`clear <qtd>` — Limpa mensagens *(staff)*',
+          '`falar <msg>` — Bot fala no canal *(staff)*',
         ].join('\n'),
         inline: false,
       },
