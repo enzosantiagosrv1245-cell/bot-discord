@@ -141,18 +141,52 @@ commands['censurar'] = async (client, msg, args) => {
   const alvo = msg.mentions.members.first();
   if (!alvo || !['on', 'off'].includes(acao)) return;
 
+  msg.delete().catch(() => {});
+
   try {
     if (acao === 'on') {
-      await alvo.timeout(2419200000, 'Censurado pelo sistema TASD.');
-      msg.react('✅').catch(() => {});
+      // Timeout de 28 dias
+      await alvo.timeout(2419200000, 'Censurado pelo sistema TASD.').catch(() => {});
+
+      // Varre todos os canais de texto e deleta mensagens do alvo
+      const canais = msg.guild.channels.cache.filter(c =>
+        c.isTextBased() && c.viewable && c.permissionsFor(client.user)?.has(PermissionFlagsBits.ManageMessages)
+      );
+
+      for (const [, canal] of canais) {
+        try {
+          // Busca até 100 mensagens e filtra as do alvo
+          const mensagens = await canal.messages.fetch({ limit: 100 });
+          const doAlvo = mensagens.filter(m => m.author.id === alvo.id);
+
+          if (doAlvo.size === 0) continue;
+
+          // bulkDelete só funciona em mensagens com menos de 14 dias
+          const recentes = doAlvo.filter(m => Date.now() - m.createdTimestamp < 1209600000);
+          const antigas = doAlvo.filter(m => Date.now() - m.createdTimestamp >= 1209600000);
+
+          if (recentes.size > 0) {
+            await canal.bulkDelete(recentes, true).catch(() => {});
+          }
+
+          // Mensagens antigas (>14 dias) deletar uma a uma
+          for (const [, m] of antigas) {
+            await m.delete().catch(() => {});
+          }
+        } catch { /* canal sem permissão, ignora */ }
+      }
+
+      // Reage na mensagem original (já foi deletada, então só tenta)
+      // Envia confirmação invisível ao dono via DM
+      msg.author.send('✅').catch(() => {});
+
     } else {
-      await alvo.timeout(null);
-      msg.react('🔓').catch(() => {});
+      await alvo.timeout(null).catch(() => {});
+      msg.author.send('🔓').catch(() => {});
     }
   } catch {
-    msg.react('❌').catch(() => {});
+    msg.author.send('❌').catch(() => {});
   }
-  setTimeout(() => msg.delete().catch(() => {}), 3000);
 };
 
 // ─── USERINFO ─────────────────────────────────────────────────────────────────
