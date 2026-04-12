@@ -7,10 +7,55 @@ const express = require('express');
 const PREFIX = 'r.';
 const TOKEN = process.env.TOKEN;
 const CLIENT_ID = process.env.CLIENT_ID;
-const ALLOWED_GUILDS = ['1464332991747588285', '1275809598242291773'];
+const ALLOWED_GUILDS = ['1464332991747588285', '1275809598242291773','1491441256323223712'];
 const CENSURA_OWNER = '1384263522422231201';
 const PARCERIA_STAFF = '1489775575802315045';
 const COR = 0xE53935;
+
+// ─── Aliases (abreviações) ────────────────────────────────────────────────────
+const ALIASES = {
+  // Utilitários
+  'help':       'ajuda',
+  'h':          'ajuda',
+  'ui':         'userinfo',
+  'si':         'serverinfo',
+  'sv':         'serverinfo',
+  'p':          'perfil',
+  // Economia
+  'dep':        'depositar',
+  'sac':        'sacar',
+  'work':       'trabalhar',
+  'trab':       'trabalhar',
+  'bal':        'banco',
+  'bal':        'banco',
+  'saldo':      'banco',
+  'bet':        'apostar',
+  'slot':       'apostar',
+  'slots':      'apostar',
+  'fish':       'pescar',
+  'mine':       'minerar',
+  'plant':      'plantar',
+  'sell':       'vender',
+  'inv':        'inventario',
+  'bag':        'inventario',
+  'shop':       'loja',
+  'buy':        'comprar',
+  'pay':        'transferir',
+  'tf':         'transferir',
+  'scratch':    'raspadinha',
+  'rasp':       'raspadinha',
+  'lot':        'loteria',
+  'top':        'ranking',
+  'lb':         'ranking',
+  // Diversão
+  'marry':      'casar',
+  'divorce':    'divorciar',
+  'div':        'divorciar',
+  'truth':      'verdade',
+  'dare':       'desafio',
+  'hang':       'forca',
+  'l':          'letra',
+};
 
 // ─── Client ───────────────────────────────────────────────────────────────────
 const client = new Client({
@@ -130,7 +175,8 @@ client.on('messageCreate', async (message) => {
   // Processar comandos
   if (!message.content.startsWith(PREFIX)) return;
   const args = message.content.slice(PREFIX.length).trim().split(/ +/);
-  const commandName = args.shift().toLowerCase();
+  const rawCommand = args.shift().toLowerCase();
+  const commandName = ALIASES[rawCommand] || rawCommand;
 
   // Comandos de economia
   const cmdEconomia = economia.commands[commandName];

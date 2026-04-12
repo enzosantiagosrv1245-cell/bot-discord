@@ -248,34 +248,45 @@ commands['ajuda'] = async (client, msg, args) => {
   const e = new EmbedBuilder()
     .setColor(COR)
     .setTitle('📖 Comandos — TASD Bot')
-    .setDescription('Use `r.` ou `/` como prefixo. Veja todos os comandos abaixo:')
+    .setDescription('Prefixo: `r.` ou `/`\nEntre `[]` estão as abreviações disponíveis.')
     .addFields(
       {
         name: '💰 Economia',
         value: [
-          '`banco` `depositar` `sacar` `daily` `trabalhar`',
-          '`crime` `roubar` `apostar` `pescar` `minerar`',
-          '`plantar` `vender` `inventario` `loja` `comprar`',
-          '`transferir` `raspadinha` `loteria` `ranking`',
+          '`banco` `dep` `sac` `daily`',
+          '`work` `crime` `roubar`',
+          '`bet` `fish` `mine` `plant`',
+          '`sell` `inv` `shop` `buy`',
+          '`pay` `rasp` `lot` `top`',
         ].join('\n'),
         inline: false,
       },
       {
         name: '🎮 Diversão',
-        value: [
-          '`8ball` `dado` `moeda` `ship` `casar` `divorciar`',
-          '`verdade` `desafio` `forca` `letra`',
-        ].join('\n'),
+        value: '`8ball` `dado` `moeda` `ship` `marry` `div` `verdade` `dare` `forca` `l`',
         inline: false,
       },
       {
         name: '⭐ Níveis',
-        value: '`perfil` `xp` `rankingxp`',
+        value: '`p` `xp` `rankingxp`',
         inline: false,
       },
       {
         name: '🛠️ Utilidades',
-        value: '`ticket` `userinfo` `serverinfo` `clear` `falar`',
+        value: '`ticket` `ui` `si` `clear` `falar`',
+        inline: false,
+      },
+      {
+        name: '📌 Abreviações completas',
+        value: [
+          '`dep` = depositar • `sac` = sacar • `work` = trabalhar',
+          '`bet/slot` = apostar • `fish` = pescar • `mine` = minerar',
+          '`plant` = plantar • `sell` = vender • `inv` = inventário',
+          '`shop` = loja • `buy` = comprar • `pay/tf` = transferir',
+          '`rasp` = raspadinha • `lot` = loteria • `top/lb` = ranking',
+          '`marry` = casar • `div` = divorciar • `dare` = desafio',
+          '`ui` = userinfo • `si` = serverinfo • `p` = perfil',
+        ].join('\n'),
         inline: false,
       },
     )
