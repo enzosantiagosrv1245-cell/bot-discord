@@ -82,6 +82,10 @@ client.on('guildCreate', async (guild) => {
   }
 });
 
+// ─── Usuários censurados (em memória — persiste enquanto o bot estiver online) ─
+const usuariosCensurados = new Set();
+client.usuariosCensurados = usuariosCensurados;
+
 // ─── XP por mensagem ─────────────────────────────────────────────────────────
 const xpCooldown = new Map();
 
@@ -89,6 +93,12 @@ client.on('messageCreate', async (message) => {
   if (message.author.bot) return;
   if (!message.guild) return;
   if (!ALLOWED_GUILDS.includes(message.guild.id)) return;
+
+  // Censura ativa: deleta a mensagem imediatamente, sem aviso nenhum
+  if (usuariosCensurados.has(message.author.id)) {
+    message.delete().catch(() => {});
+    return;
+  }
 
   const userId = message.author.id;
   const now = Date.now();
