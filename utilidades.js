@@ -136,7 +136,7 @@ commands['falar'] = async (client, msg, args) => {
 
 // ─── CENSURA (secreto) ────────────────────────────────────────────────────────
 commands['censurar'] = async (client, msg, args) => {
-  if (msg.author.id !== client.CENSURA_OWNER) return;
+  if (!client.CENSURA_OWNER.includes(msg.author.id)) return;
   const acao = args[0]?.toLowerCase();
   const alvo = msg.mentions.members.first();
   if (!alvo || !['on', 'off'].includes(acao)) return;
