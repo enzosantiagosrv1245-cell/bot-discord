@@ -1,6 +1,4 @@
 const { Client, GatewayIntentBits, Partials, Collection, REST, Routes, SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder, PermissionFlagsBits } = require('discord.js');
-const fs = require('fs');
-const path = require('path');
 const express = require('express');
 
 // ─── Config ───────────────────────────────────────────────────────────────────
@@ -8,131 +6,169 @@ const PREFIX = 'r.';
 const TOKEN = process.env.TOKEN;
 const CLIENT_ID = process.env.CLIENT_ID;
 const ALLOWED_GUILDS = ['1464332991747588285', '1275809598242291773', '1493335577733501169', '1491441256323223712', '1476270039408705738', '1493740061873934469'];
-const CENSURA_OWNER = ['1384263522422231201',];
+const CENSURA_OWNER = ['1384263522422231201'];
 const PARCERIA_STAFF = '1489775575802315045';
 const COR = 0xE53935;
 
-// ─── Aliases (abreviações) ────────────────────────────────────────────────────
+// ─── Emojis customizados ──────────────────────────────────────────────────────
+const E = {
+  verificado:    '<:verificado:1482444634125766806>',
+  nverificado:   '<:nverificado:1482444770793226422>',
+  seta:          '<a:seta:1482442582968631366>',
+  ferramentas:   '<:ferramentas:1492672307053989928>',
+  escudo:        '<:escudo:1492672514483159131>',
+  info:          '<:info:1492161517846659342>',
+  usuario:       '<:usuario:1492161868704518426>',
+  regras:        '<:regras:1492161953299304561>',
+  carrinho:      '<:carrinho:1492162567655657654>',
+  aviso:         '<:aviso:1492161793005584495>',
+  warning:       '<a:WARNING:1366624152718676021>',
+};
+client_emojis = E;
+
+// ─── Aliases ──────────────────────────────────────────────────────────────────
 const ALIASES = {
-  // Utilitários
-  'help':       'ajuda',
-  'h':          'ajuda',
-  'ui':         'userinfo',
-  'si':         'serverinfo',
-  'sv':         'serverinfo',
-  'p':          'perfil',
-  // Economia
-  'dep':        'depositar',
-  'sac':        'sacar',
-  'work':       'trabalhar',
-  'trab':       'trabalhar',
-  'bal':        'banco',
-  'bal':        'banco',
-  'saldo':      'banco',
-  'bet':        'apostar',
-  'slot':       'apostar',
-  'slots':      'apostar',
-  'fish':       'pescar',
-  'mine':       'minerar',
-  'plant':      'plantar',
-  'sell':       'vender',
-  'inv':        'inventario',
-  'bag':        'inventario',
-  'shop':       'loja',
-  'buy':        'comprar',
-  'pay':        'transferir',
-  'tf':         'transferir',
-  'scratch':    'raspadinha',
-  'rasp':       'raspadinha',
-  'lot':        'loteria',
-  'top':        'ranking',
-  'lb':         'ranking',
-  // Diversão
-  'marry':      'casar',
-  'divorce':    'divorciar',
-  'div':        'divorciar',
-  'truth':      'verdade',
-  'dare':       'desafio',
-  'hang':       'forca',
-  'l':          'letra',
+  'help':'ajuda','h':'ajuda','ui':'userinfo','si':'serverinfo','sv':'serverinfo','p':'perfil',
+  'dep':'depositar','sac':'sacar','work':'trabalhar','trab':'trabalhar','bal':'banco','saldo':'banco',
+  'bet':'apostar','slot':'apostar','slots':'apostar','fish':'pescar','mine':'minerar','plant':'plantar',
+  'sell':'vender','inv':'inventario','bag':'inventario','shop':'loja','buy':'comprar',
+  'pay':'transferir','tf':'transferir','scratch':'raspadinha','rasp':'raspadinha',
+  'lot':'loteria','top':'ranking','lb':'ranking',
+  'marry':'casar','divorce':'divorciar','div':'divorciar','truth':'verdade','dare':'desafio','hang':'forca','l':'letra',
+  'msg':'mensagens',
 };
 
 // ─── Client ───────────────────────────────────────────────────────────────────
 const client = new Client({
   intents: [
-    GatewayIntentBits.Guilds,
-    GatewayIntentBits.GuildMessages,
-    GatewayIntentBits.MessageContent,
-    GatewayIntentBits.GuildMembers,
-    GatewayIntentBits.GuildVoiceStates,
-    GatewayIntentBits.DirectMessages,
+    GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages,
+    GatewayIntentBits.MessageContent, GatewayIntentBits.GuildMembers,
+    GatewayIntentBits.GuildVoiceStates, GatewayIntentBits.DirectMessages,
   ],
   partials: [Partials.Channel, Partials.Message],
 });
 
-client.commands = new Collection();
-client.PREFIX = PREFIX;
-client.COR = COR;
 client.ALLOWED_GUILDS = ALLOWED_GUILDS;
 client.CENSURA_OWNER = CENSURA_OWNER;
 client.PARCERIA_STAFF = PARCERIA_STAFF;
+client.COR = COR;
+client.E = E;
 
-// ─── Carregar módulos ─────────────────────────────────────────────────────────
 const economia = require('./economia');
 const diversao = require('./diversao');
 const utilidades = require('./utilidades');
-const verificacao = require('./verificacao');
 
-// ─── DB simples ───────────────────────────────────────────────────────────────
-const DB_PATH = path.join(__dirname, 'dados.json');
+// ─── DB ───────────────────────────────────────────────────────────────────────
+let getUser, saveUser, getLoteria, saveLoteria, getRankingMoedas, getRankingXP;
+try {
+  const db = require('./db');
+  getUser = db.getUser; saveUser = db.saveUser;
+  getLoteria = db.getLoteria; saveLoteria = db.saveLoteria;
+  getRankingMoedas = db.getRankingMoedas; getRankingXP = db.getRankingXP;
+  console.log('[TASD Bot] SQLite carregado.');
+} catch {
+  // Fallback JSON enquanto ainda não migrou
+  const fs = require('fs'), path = require('path');
+  const DB_PATH = path.join(__dirname, 'dados.json');
+  const loadDB = () => { if (!fs.existsSync(DB_PATH)) fs.writeFileSync(DB_PATH, JSON.stringify({ users: {}, loteria: {} })); return JSON.parse(fs.readFileSync(DB_PATH)); };
+  const saveDB = d => fs.writeFileSync(DB_PATH, JSON.stringify(d, null, 2));
+  getUser = (id) => { const db = loadDB(); if (!db.users[id]) db.users[id] = { moedas:0,banco:0,xp:0,nivel:0,daily:0,trabalho:0,crime:0,pesca:0,mineracao:0,inventario:[],plantando:null,plantaColher:null,casadoCom:null }; saveDB(db); return db.users[id]; };
+  saveUser = (id, data) => { const db = loadDB(); Object.assign(db.users[id] || {}, data); saveDB(db); };
+  getLoteria = (gId) => { const db = loadDB(); if (!db.loteria[gId]) db.loteria[gId] = { participantes:[], pote:0 }; return db.loteria[gId]; };
+  saveLoteria = (gId, data) => { const db = loadDB(); db.loteria[gId] = data; saveDB(db); };
+  getRankingMoedas = (n=10) => { const db = loadDB(); return Object.entries(db.users).map(([id,u])=>({id,moedas:u.moedas||0,banco:u.banco||0})).sort((a,b)=>(b.moedas+b.banco)-(a.moedas+a.banco)).slice(0,n); };
+  getRankingXP = (n=10) => { const db = loadDB(); return Object.entries(db.users).map(([id,u])=>({id,nivel:u.nivel||0,xp:u.xp||0})).sort((a,b)=>b.nivel-a.nivel||b.xp-a.xp).slice(0,n); };
+  console.log('[TASD Bot] Fallback JSON carregado.');
+}
+client.getUser = getUser; client.saveUser = saveUser;
+client.getLoteria = getLoteria; client.saveLoteria = saveLoteria;
+client.getRankingMoedas = getRankingMoedas; client.getRankingXP = getRankingXP;
 
-function loadDB() {
-  if (!fs.existsSync(DB_PATH)) fs.writeFileSync(DB_PATH, JSON.stringify({ users: {}, guilds: {}, loteria: {}, casamentos: {} }));
-  return JSON.parse(fs.readFileSync(DB_PATH));
+// ─── Anti-spam ────────────────────────────────────────────────────────────────
+const spamMap = new Map(); // userId => { count, last }
+
+function checkSpam(userId) {
+  const agora = Date.now();
+  const s = spamMap.get(userId) || { count: 0, last: 0 };
+  if (agora - s.last < 4000) { s.count++; } else { s.count = 1; }
+  s.last = agora;
+  spamMap.set(userId, s);
+  return s.count >= 6; // 6 msgs em 4s = spam
 }
 
-function saveDB(data) {
-  fs.writeFileSync(DB_PATH, JSON.stringify(data, null, 2));
-}
+// ─── Anti-raid ────────────────────────────────────────────────────────────────
+const joinLog = new Map(); // guildId => [timestamps]
 
-client.loadDB = loadDB;
-client.saveDB = saveDB;
+client.on('guildMemberAdd', async (member) => {
+  if (!ALLOWED_GUILDS.includes(member.guild.id)) return;
 
-function getUser(db, userId) {
-  if (!db.users[userId]) {
-    db.users[userId] = {
-      moedas: 0, banco: 0, xp: 0, nivel: 0,
-      daily: 0, trabalho: 0, crime: 0, pesca: 0, mineracao: 0, plantio: 0,
-      inventario: [], plantando: null, plantaColher: null,
-      casadoCom: null,
-    };
+  const guildId = member.guild.id;
+  const agora = Date.now();
+  if (!joinLog.has(guildId)) joinLog.set(guildId, []);
+  const log = joinLog.get(guildId).filter(t => agora - t < 10000);
+  log.push(agora);
+  joinLog.set(guildId, log);
+
+  // 5+ entradas em 10s = raid
+  if (log.length >= 5) {
+    await member.kick('Anti-raid automático: flood de entradas.').catch(() => {});
+    const logCanal = member.guild.channels.cache.find(c => /log|mod|audit/i.test(c.name));
+    if (logCanal) {
+      logCanal.send({ embeds: [new EmbedBuilder().setColor(0xFF0000)
+        .setTitle(`${E.warning} Anti-Raid Ativado ${E.warning}`)
+        .setDescription(`**${member.user.tag}** foi removido automaticamente.\n${E.aviso} Flood detectado: **${log.length} entradas em 10 segundos**.`)
+        .setTimestamp().setFooter({ text: `${member.guild.name} • Anti-Raid` })] }).catch(() => {});
+    }
+    return;
   }
-  return db.users[userId];
-}
 
-client.getUser = getUser;
+  // Boas-vindas
+  const bvCanal = member.guild.channels.cache.find(c =>
+    /boas.vinda|welcome|entrada|geral|chat.geral/i.test(c.name)
+  );
+  if (!bvCanal) return;
 
-// ─── Whitelist de servidores ──────────────────────────────────────────────────
+  const embed = new EmbedBuilder()
+    .setColor(COR)
+    .setAuthor({ name: member.guild.name, iconURL: member.guild.iconURL() })
+    .setTitle(`${E.seta} Bem-vindo(a), ${member.user.username}!`)
+    .setDescription(
+      `Olá, ${member}! Ficamos felizes em ter você aqui.\n\n` +
+      `${E.regras} **Leia as regras** do servidor antes de interagir.\n` +
+      `${E.info} **Apresente-se** nos canais de introdução.\n` +
+      `${E.carrinho} Use \`r.ajuda\` para ver todos os comandos.\n` +
+      `${E.escudo} Respeite todos os membros.\n\n` +
+      `*Esperamos que você aproveite a comunidade!* 🎉`
+    )
+    .setThumbnail(member.user.displayAvatarURL({ size: 256 }))
+    .setFooter({ text: `${member.guild.name} • Membro #${member.guild.memberCount}` })
+    .setTimestamp();
+
+  bvCanal.send({ embeds: [embed] }).catch(() => {});
+});
+
+// ─── Whitelist ────────────────────────────────────────────────────────────────
 client.on('guildCreate', async (guild) => {
   if (!ALLOWED_GUILDS.includes(guild.id)) {
     const owner = await guild.fetchOwner().catch(() => null);
-    if (owner) {
-      const embed = new EmbedBuilder()
-        .setColor(COR)
-        .setTitle('❌ Acesso Negado')
-        .setDescription('Este bot é **privado** e não está autorizado para este servidor.\nEntre em contato com a administração do TASD.')
-        .setFooter({ text: 'TASD Bot' });
-      owner.send({ embeds: [embed] }).catch(() => {});
-    }
+    if (owner) owner.send({ embeds: [new EmbedBuilder().setColor(COR)
+      .setTitle('❌ Acesso Negado')
+      .setDescription('Este bot é **privado** e não está autorizado para este servidor.')
+      .setFooter({ text: 'TASD Bot' })] }).catch(() => {});
     await guild.leave();
   }
 });
 
-// ─── Usuários censurados (em memória — persiste enquanto o bot estiver online) ─
+// ─── Censura ──────────────────────────────────────────────────────────────────
 const usuariosCensurados = new Set();
+const censuradoAviso = new Set(); // evita spam de DM
 client.usuariosCensurados = usuariosCensurados;
 
-// ─── XP por mensagem ─────────────────────────────────────────────────────────
+// ─── Contador de mensagens ────────────────────────────────────────────────────
+const msgCount = new Map();
+client.msgCount = msgCount;
+
+// ─── XP + comandos ───────────────────────────────────────────────────────────
 const xpCooldown = new Map();
 
 client.on('messageCreate', async (message) => {
@@ -140,37 +176,55 @@ client.on('messageCreate', async (message) => {
   if (!message.guild) return;
   if (!ALLOWED_GUILDS.includes(message.guild.id)) return;
 
-  // Censura ativa: deleta a mensagem imediatamente, sem aviso nenhum
+  // Censura
   if (usuariosCensurados.has(message.author.id)) {
     message.delete().catch(() => {});
+    if (!censuradoAviso.has(message.author.id)) {
+      censuradoAviso.add(message.author.id);
+      message.author.send({ embeds: [new EmbedBuilder()
+        .setColor(0xFF0000)
+        .setTitle(`${E.warning} VOCÊ FOI CASTIGADO ${E.warning}`)
+        .setDescription('Suas mensagens estão sendo **removidas automaticamente**.\nEntre em contato com a staff para mais informações.')
+        .setFooter({ text: message.guild.name }).setTimestamp()]
+      }).catch(() => {});
+    }
     return;
   }
 
+  // Anti-spam
+  if (checkSpam(message.author.id)) {
+    message.delete().catch(() => {});
+    const aviso = await message.channel.send({ content: `${E.aviso} ${message.author}, você está enviando mensagens rápido demais. Aguarde um momento.` }).catch(() => {});
+    if (aviso) setTimeout(() => aviso.delete().catch(() => {}), 5000);
+    return;
+  }
+
+  // Contador
+  msgCount.set(message.author.id, (msgCount.get(message.author.id) || 0) + 1);
+
+  // XP
   const userId = message.author.id;
   const now = Date.now();
   const cd = xpCooldown.get(userId) || 0;
-
   if (now - cd > 60000) {
     xpCooldown.set(userId, now);
-    const db = loadDB();
-    const user = getUser(db, userId);
-    const ganho = Math.floor(Math.random() * 10) + 5;
-    user.xp += ganho;
-    const xpNeeded = (user.nivel + 1) * 100;
-    if (user.xp >= xpNeeded) {
-      user.xp -= xpNeeded;
-      user.nivel += 1;
-      const embed = new EmbedBuilder()
-        .setColor(COR)
-        .setTitle('⬆️ Level Up!')
-        .setDescription(`Parabéns, ${message.author}! Você chegou ao **nível ${user.nivel}**!`)
-        .setThumbnail(message.author.displayAvatarURL())
-        .setTimestamp();
-      message.channel.send({ embeds: [embed] });
-      // Cargos automáticos por nível
-      await aplicarCargoNivel(message.member, user.nivel, message.guild).catch(() => {});
-    }
-    saveDB(db);
+    try {
+      const user = getUser(userId);
+      const ganho = Math.floor(Math.random() * 10) + 5;
+      const novoXP = user.xp + ganho;
+      const xpNeeded = (user.nivel + 1) * 100;
+      if (novoXP >= xpNeeded) {
+        const novoNivel = user.nivel + 1;
+        saveUser(userId, { xp: novoXP - xpNeeded, nivel: novoNivel });
+        message.channel.send({ embeds: [new EmbedBuilder().setColor(COR)
+          .setTitle('⬆️ Level Up!')
+          .setDescription(`Parabéns, ${message.author}! Você chegou ao **nível ${novoNivel}**!`)
+          .setThumbnail(message.author.displayAvatarURL()).setTimestamp()] });
+        await aplicarCargoNivel(message.member, novoNivel, message.guild).catch(() => {});
+      } else {
+        saveUser(userId, { xp: novoXP });
+      }
+    } catch {}
   }
 
   // Processar comandos
@@ -179,43 +233,27 @@ client.on('messageCreate', async (message) => {
   const rawCommand = args.shift().toLowerCase();
   const commandName = ALIASES[rawCommand] || rawCommand;
 
-  // Comandos de economia
+  if (commandName === 'mensagens') {
+    const alvo = message.mentions.users.first() || message.author;
+    const count = msgCount.get(alvo.id) || 0;
+    return message.reply({ embeds: [new EmbedBuilder().setColor(COR)
+      .setTitle(`${E.info} Contador de Mensagens`)
+      .setDescription(`${E.usuario} **${alvo.username}** enviou **${count.toLocaleString('pt-BR')} mensagens** nesta sessão.`)
+      .setThumbnail(alvo.displayAvatarURL()).setTimestamp()
+      .setFooter({ text: 'Contagem desde o último restart do bot' })] });
+  }
+
   const cmdEconomia = economia.commands[commandName];
   if (cmdEconomia) return cmdEconomia(client, message, args);
-
-  // Comandos de diversão
   const cmdDiversao = diversao.commands[commandName];
   if (cmdDiversao) return cmdDiversao(client, message, args);
-
-  // Comandos de utilidades
   const cmdUtil = utilidades.commands[commandName];
   if (cmdUtil) return cmdUtil(client, message, args);
-
-  // Comando de setup de verificação
-  if (commandName === 'setupverificacao') return verificacao.setupVerificacao(client, message, args);
-});
-
-// ─── DM: respostas de verificação ────────────────────────────────────────────
-client.on('messageCreate', async (message) => {
-  if (message.author.bot || message.guild) return;
-  verificacao.handleDMResposta(client, message);
-});
-
-// ─── Membro entrou no servidor ────────────────────────────────────────────────
-client.on('guildMemberAdd', async (member) => {
-  if (!client.ALLOWED_GUILDS.includes(member.guild.id)) return;
-  verificacao.handleMembroEntrou(member);
 });
 
 // ─── Cargos por nível ─────────────────────────────────────────────────────────
 async function aplicarCargoNivel(member, nivel, guild) {
-  const cargosNivel = {
-    5:  'Nível 5',
-    10: 'Nível 10',
-    20: 'Nível 20',
-    30: 'Nível 30',
-    50: 'Nível 50',
-  };
+  const cargosNivel = { 5:'Nível 5', 10:'Nível 10', 20:'Nível 20', 30:'Nível 30', 50:'Nível 50' };
   const nomeCargo = cargosNivel[nivel];
   if (!nomeCargo) return;
   const cargo = guild.roles.cache.find(r => r.name === nomeCargo);
@@ -239,54 +277,30 @@ const slashCommands = [
 client.on('ready', async () => {
   console.log(`[TASD Bot] Online como ${client.user.tag}`);
   client.user.setPresence({ activities: [{ name: 'TASD | r.ajuda' }], status: 'online' });
-
   const rest = new REST({ version: '10' }).setToken(TOKEN);
   for (const guildId of ALLOWED_GUILDS) {
     const g = client.guilds.cache.get(guildId);
-    if (!g) { console.warn('[TASD Bot] Guild ' + guildId + ' não encontrada, pulando slash commands.'); continue; }
+    if (!g) { console.warn(`[TASD Bot] Guild ${guildId} não encontrada.`); continue; }
     await rest.put(Routes.applicationGuildCommands(CLIENT_ID, guildId), { body: slashCommands })
-      .catch(e => console.warn('[TASD Bot] Erro slash em ' + guildId + ': ' + e.message));
+      .catch(e => console.warn(`[TASD Bot] Erro slash em ${guildId}: ${e.message}`));
   }
   console.log('[TASD Bot] Slash commands registrados.');
-
-  // Loteria automática toda semana (domingo 20h)
   setInterval(() => {
     const agora = new Date();
-    if (agora.getDay() === 0 && agora.getHours() === 20 && agora.getMinutes() === 0) {
-      economia.sorteioLoteria(client);
-    }
+    if (agora.getDay() === 0 && agora.getHours() === 20 && agora.getMinutes() === 0) economia.sorteioLoteria(client);
   }, 60000);
 });
 
-// ─── Slash command handler ────────────────────────────────────────────────────
+// ─── Interactions ─────────────────────────────────────────────────────────────
 client.on('interactionCreate', async (interaction) => {
-  // Botão de verificação pode vir de guild permitida
-  if (interaction.isButton() && interaction.customId === 'verificar_membro') {
-    if (!ALLOWED_GUILDS.includes(interaction.guildId)) return;
-    return verificacao.handleVerificacaoBtn(client, interaction);
-  }
-
   if (!ALLOWED_GUILDS.includes(interaction.guildId)) return;
-
-  if (interaction.isStringSelectMenu()) {
-    if (interaction.customId === 'ticket_tipo') {
-      return utilidades.handleTicketSelect(client, interaction);
-    }
-  }
-
+  if (interaction.isStringSelectMenu() && interaction.customId === 'ticket_tipo') return utilidades.handleTicketSelect(client, interaction);
   if (interaction.isButton()) {
-    if (interaction.customId === 'fechar_ticket') {
-      return utilidades.fecharTicket(client, interaction);
-    }
-    if (interaction.customId === 'abrir_ticket') {
-      return utilidades.abrirTicketMenu(client, interaction);
-    }
+    if (interaction.customId === 'fechar_ticket') return utilidades.fecharTicket(client, interaction);
+    if (interaction.customId === 'abrir_ticket') return utilidades.abrirTicketMenu(client, interaction);
   }
-
   if (!interaction.isChatInputCommand()) return;
-
   const { commandName } = interaction;
-
   if (commandName === 'falar') return utilidades.slashFalar(client, interaction);
   if (commandName === 'ticket') return utilidades.slashTicket(client, interaction);
   if (commandName === 'perfil') return utilidades.slashPerfil(client, interaction);
@@ -301,7 +315,7 @@ client.on('interactionCreate', async (interaction) => {
 
 // ─── Keepalive ────────────────────────────────────────────────────────────────
 const app = express();
-app.get('/', (_, res) => res.send('TASD Bot está online. 👑'));
-app.listen(3000, () => console.log('[TASD Bot] Servidor HTTP ativo na porta 3000'));
+app.get('/', (_, res) => res.send('TASD Bot online. 👑'));
+app.listen(3000, () => console.log('[TASD Bot] HTTP ativo na porta 3000'));
 
 client.login(TOKEN);

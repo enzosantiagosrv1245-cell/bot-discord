@@ -1,9 +1,31 @@
 const {
   EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle,
-  StringSelectMenuBuilder, ChannelType, PermissionFlagsBits, OverwriteType
+  StringSelectMenuBuilder, ChannelType, PermissionFlagsBits
 } = require('discord.js');
 
+let getUser, saveUser, getRankingXP;
+try {
+  const db = require('./db');
+  getUser = db.getUser; saveUser = db.saveUser; getRankingXP = db.getRankingXP;
+} catch {
+  getUser = () => ({ moedas:0, banco:0, xp:0, nivel:0, casadoCom:null, inventario:[] });
+  saveUser = () => {}; getRankingXP = () => [];
+}
+
 const COR = 0xE53935;
+const E = {
+  verificado:  '<:verificado:1482444634125766806>',
+  nverificado: '<:nverificado:1482444770793226422>',
+  seta:        '<a:seta:1482442582968631366>',
+  ferramentas: '<:ferramentas:1492672307053989928>',
+  escudo:      '<:escudo:1492672514483159131>',
+  info:        '<:info:1492161517846659342>',
+  usuario:     '<:usuario:1492161868704518426>',
+  regras:      '<:regras:1492161953299304561>',
+  carrinho:    '<:carrinho:1492162567655657654>',
+  aviso:       '<:aviso:1492161793005584495>',
+  warning:     '<a:WARNING:1366624152718676021>',
+};
 
 function embed(titulo, descricao, cor = COR) {
   return new EmbedBuilder().setColor(cor).setTitle(titulo).setDescription(descricao)
@@ -13,18 +35,26 @@ function embed(titulo, descricao, cor = COR) {
 function moedaFmt(n) { return `🪙 **${Number(n).toLocaleString('pt-BR')}** moedas`; }
 
 // ─── Requisitos de parceria ───────────────────────────────────────────────────
-const MSG_PARCERIA = `**NOSSOS REQUISITOS:**\n\n✅ Ter **1 representante** da parceria no nosso servidor\n✅ Servidor com **50+ membros**\n✅ Servidor **sem NSFW**\n✅ Servidor com **chat ativo**\n\nSe o seu servidor atende a todos esses requisitos, aguarde um representante! <@1489775575802315045>`;
+const MSG_PARCERIA = [
+  '> Leia com atenção antes de prosseguir.\n',
+  '**✅ Requisitos obrigatórios:**\n',
+  '> 👤 **1 representante** da parceria presente no nosso servidor',
+  '> 👥 Servidor com **50+ membros**',
+  '> 🔞 Servidor **sem canais NSFW**',
+  '> 💬 Servidor com **chat ativo**\n',
+  `Se o seu servidor atende a **todos** os requisitos acima, descreva sua proposta e aguarde um representante.\n<@1489775575802315045>`,
+].join('\n');
 
 // ─── Tipos de ticket ──────────────────────────────────────────────────────────
 const TICKET_TIPOS = [
-  { value: 'suporte', label: '🆘 Suporte Geral', description: 'Dúvidas, bugs e problemas gerais', emoji: '🆘' },
-  { value: 'parceria', label: '🤝 Parceria', description: 'Solicitar parceria com outro servidor', emoji: '🤝' },
-  { value: 'denuncia', label: '⚠️ Denúncia', description: 'Reportar um usuário ou situação', emoji: '⚠️' },
-  { value: 'apelacao', label: '⚖️ Apelação', description: 'Apelar contra punições recebidas', emoji: '⚖️' },
-  { value: 'sugestao', label: '💡 Sugestão', description: 'Sugerir melhorias para o servidor', emoji: '💡' },
-  { value: 'eventos', label: '🎉 Eventos', description: 'Solicitar ou perguntar sobre eventos', emoji: '🎉' },
-  { value: 'cargo', label: '🏷️ Cargos', description: 'Solicitar ou remover cargos', emoji: '🏷️' },
-  { value: 'outro', label: '📋 Outro', description: 'Assuntos não listados acima', emoji: '📋' },
+  { value: 'suporte',  label: '🆘 Suporte Geral', description: 'Dúvidas, bugs e problemas gerais',      emoji: '🆘' },
+  { value: 'parceria', label: '🤝 Parceria',       description: 'Solicitar parceria com outro servidor', emoji: '🤝' },
+  { value: 'denuncia', label: '⚠️ Denúncia',       description: 'Reportar um usuário ou situação',       emoji: '⚠️' },
+  { value: 'apelacao', label: '⚖️ Apelação',       description: 'Apelar contra punições recebidas',      emoji: '⚖️' },
+  { value: 'sugestao', label: '💡 Sugestão',        description: 'Sugerir melhorias para o servidor',    emoji: '💡' },
+  { value: 'eventos',  label: '🎉 Eventos',         description: 'Solicitar ou perguntar sobre eventos',  emoji: '🎉' },
+  { value: 'cargo',    label: '🏷️ Cargos',         description: 'Solicitar ou remover cargos',           emoji: '🏷️' },
+  { value: 'outro',    label: '📋 Outro',           description: 'Assuntos não listados acima',           emoji: '📋' },
 ];
 
 const commands = {};
@@ -33,11 +63,20 @@ const commands = {};
 commands['ticket'] = async (client, msg, args) => {
   const e = new EmbedBuilder()
     .setColor(COR)
-    .setTitle('🎫 Central de Suporte — TASD')
-    .setDescription('Bem-vindo ao sistema de tickets.\n\nClique no botão abaixo para abrir um ticket e escolher a categoria correspondente.\n\n> Seja específico ao descrever sua situação para receber ajuda mais rápido.')
-    .setThumbnail(msg.guild.iconURL())
+    .setTitle('🎫 Central de Suporte')
+    .setDescription(
+      '**Precisa de ajuda? Estamos aqui!**\n\n' +
+      'Clique no botão abaixo para abrir um ticket e escolher a categoria.\n\n' +
+      '📌 **Dicas para um atendimento mais rápido:**\n' +
+      '> • Seja claro e objetivo ao descrever seu problema\n' +
+      '> • Inclua prints ou evidências se necessário\n' +
+      '> • Aguarde — nossa equipe responderá em breve\n\n' +
+      '*Tickets abertos sem motivo serão encerrados.*'
+    )
+    .setThumbnail(msg.guild.iconURL({ size: 256 }))
+    .setImage('https://i.imgur.com/placeholder.png') // remova se não quiser banner
     .setTimestamp()
-    .setFooter({ text: 'TASD — Todos Aqui São Donos' });
+    .setFooter({ text: `${msg.guild.name} • Sistema de Tickets` });
 
   const row = new ActionRowBuilder().addComponents(
     new ButtonBuilder().setCustomId('abrir_ticket').setLabel('Abrir Ticket').setStyle(ButtonStyle.Danger).setEmoji('🎫')
@@ -52,7 +91,7 @@ async function abrirTicketMenu(client, interaction) {
     .setPlaceholder('Selecione a categoria do seu ticket...')
     .addOptions(TICKET_TIPOS.map(t => ({ label: t.label, value: t.value, description: t.description, emoji: t.emoji })));
   const row = new ActionRowBuilder().addComponents(select);
-  await interaction.reply({ content: '**Selecione a categoria do seu ticket abaixo:**', components: [row], ephemeral: true });
+  await interaction.reply({ content: '**Selecione a categoria do seu ticket abaixo:**', components: [row], flags: 64 });
 }
 
 // ─── Criar ticket ─────────────────────────────────────────────────────────────
@@ -62,11 +101,10 @@ async function handleTicketSelect(client, interaction) {
   const userId = interaction.user.id;
 
   const existente = guild.channels.cache.find(c => c.name === `ticket-${interaction.user.username.toLowerCase().replace(/[^a-z0-9]/g, '')}-${tipo.value}`);
-  if (existente) {
-    return interaction.reply({ content: `❌ Você já tem um ticket desse tipo aberto: ${existente}`, ephemeral: true });
-  }
+  if (existente) return interaction.reply({ content: `❌ Você já tem um ticket desse tipo aberto: ${existente}`, flags: 64 });
 
   const categoriaTicket = guild.channels.cache.find(c => c.type === ChannelType.GuildCategory && c.name.toLowerCase().includes('ticket'));
+  const cargosStaff = guild.roles.cache.filter(r => /staff|mod|admin|suporte/i.test(r.name));
 
   const canal = await guild.channels.create({
     name: `ticket-${interaction.user.username.toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 15)}-${tipo.value}`,
@@ -79,43 +117,64 @@ async function handleTicketSelect(client, interaction) {
     ],
   });
 
-  // Adicionar permissões de staff (cargos com "staff", "mod", "admin" no nome)
-  const cargosStaff = guild.roles.cache.filter(r => /staff|mod|admin|suporte/i.test(r.name));
   for (const [, cargo] of cargosStaff) {
     await canal.permissionOverwrites.edit(cargo, { ViewChannel: true, SendMessages: true });
   }
 
+  const cores = {
+    suporte: 0xE53935, parceria: 0x43A047, denuncia: 0xFF6F00,
+    apelacao: 0x1E88E5, sugestao: 0x8E24AA, eventos: 0xF4511E,
+    cargo: 0x00ACC1, outro: 0x757575,
+  };
+
   const ticketEmbed = new EmbedBuilder()
-    .setColor(COR)
-    .setTitle(`${tipo.emoji} Ticket — ${tipo.label}`)
-    .setDescription(`Olá, ${interaction.user}! Seu ticket foi aberto com sucesso.\n\nPor favor, **descreva seu problema com detalhes** e aguarde. Nossa equipe irá te atender em breve.\n\n> Categoria: **${tipo.label}**`)
-    .setThumbnail(interaction.user.displayAvatarURL())
-    .setTimestamp()
-    .setFooter({ text: 'TASD — Todos Aqui São Donos' });
+    .setColor(cores[tipo.value] || COR)
+    .setAuthor({ name: interaction.user.tag, iconURL: interaction.user.displayAvatarURL() })
+    .setTitle(`${tipo.emoji} ${tipo.label}`)
+    .setDescription(
+      `Olá, ${interaction.user}! Seu ticket foi aberto.\n\n` +
+      `📋 **Categoria:** ${tipo.label}\n` +
+      `🕐 **Aberto em:** <t:${Math.floor(Date.now() / 1000)}:F>\n\n` +
+      `Descreva sua situação com o máximo de detalhes possível.\nNossa equipe irá te atender em breve.`
+    )
+    .setFooter({ text: `${guild.name} • Ticket System` })
+    .setTimestamp();
 
   const rowTicket = new ActionRowBuilder().addComponents(
     new ButtonBuilder().setCustomId('fechar_ticket').setLabel('Fechar Ticket').setStyle(ButtonStyle.Danger).setEmoji('🔒')
   );
 
-  await canal.send({ content: `${interaction.user} | ${cargosStaff.map(r => `<@&${r.id}>`).join(' ') || ''}`, embeds: [ticketEmbed], components: [rowTicket] });
+  await canal.send({
+    content: `${interaction.user} ${cargosStaff.map(r => `<@&${r.id}>`).join(' ')}`,
+    embeds: [ticketEmbed],
+    components: [rowTicket]
+  });
 
   if (tipo.value === 'parceria') {
-    const parceriaEmbed = new EmbedBuilder().setColor(COR).setTitle('🤝 Requisitos de Parceria').setDescription(MSG_PARCERIA).setTimestamp().setFooter({ text: 'TASD — Todos Aqui São Donos' });
+    const parceriaEmbed = new EmbedBuilder()
+      .setColor(0x43A047)
+      .setTitle('🤝 Requisitos de Parceria')
+      .setDescription(MSG_PARCERIA)
+      .setFooter({ text: `${guild.name} • Parcerias` })
+      .setTimestamp();
     await canal.send({ embeds: [parceriaEmbed] });
   }
 
-  await interaction.reply({ content: `✅ Seu ticket foi aberto em ${canal}!`, ephemeral: true });
+  await interaction.reply({ content: `✅ Ticket aberto em ${canal}!`, flags: 64 });
 }
 
 // ─── Fechar ticket ────────────────────────────────────────────────────────────
 async function fecharTicket(client, interaction) {
   const canal = interaction.channel;
-  if (!canal.name.startsWith('ticket-')) return interaction.reply({ content: '❌ Este não é um canal de ticket.', ephemeral: true });
-
-  const e = embed('🔒 Ticket Fechado', `Ticket fechado por ${interaction.user}.\nO canal será deletado em **5 segundos**.`);
+  if (!canal.name.startsWith('ticket-')) return interaction.reply({ content: '❌ Este não é um canal de ticket.', flags: 64 });
+  const e = new EmbedBuilder().setColor(0x757575)
+    .setTitle('🔒 Ticket Encerrado')
+    .setDescription(`Ticket encerrado por ${interaction.user}.\nEste canal será deletado em **5 segundos**.`)
+    .setTimestamp().setFooter({ text: interaction.guild.name });
   await interaction.reply({ embeds: [e] });
   setTimeout(() => canal.delete().catch(() => {}), 5000);
 }
+
 
 // ─── CLEAR ────────────────────────────────────────────────────────────────────
 commands['clear'] = async (client, msg, args) => {
@@ -140,38 +199,36 @@ commands['censurar'] = async (client, msg, args) => {
   const acao = args[0]?.toLowerCase();
   const alvo = msg.mentions.members.first();
   if (!alvo || !['on', 'off'].includes(acao)) return;
-
   msg.delete().catch(() => {});
-
   if (acao === 'on') {
     client.usuariosCensurados.add(alvo.id);
-    msg.author.send(`✅ Censura ativada para ${alvo.user.username}.`).catch(() => {});
+    msg.author.send(`${E.verificado} Censura ativada para **${alvo.user.username}**.`).catch(() => {});
   } else {
     client.usuariosCensurados.delete(alvo.id);
-    msg.author.send(`🔓 Censura removida de ${alvo.user.username}.`).catch(() => {});
+    if (client.censuradoAviso) client.censuradoAviso.delete(alvo.id);
+    msg.author.send(`🔓 Censura removida de **${alvo.user.username}**.`).catch(() => {});
   }
 };
 
 // ─── USERINFO ─────────────────────────────────────────────────────────────────
 commands['userinfo'] = async (client, msg, args) => {
   const alvo = msg.mentions.members.first() || msg.member;
-  const db = client.loadDB();
-  const user = client.getUser(db, alvo.id);
+  const user = getUser(alvo.id);
   const cargos = alvo.roles.cache.filter(r => r.id !== msg.guild.id).sort((a, b) => b.position - a.position).map(r => r.toString()).slice(0, 5).join(', ') || 'Nenhum';
   const e = new EmbedBuilder()
     .setColor(alvo.displayHexColor || COR)
-    .setTitle(`👤 ${alvo.user.username}`)
+    .setAuthor({ name: alvo.user.tag, iconURL: alvo.user.displayAvatarURL() })
     .setThumbnail(alvo.user.displayAvatarURL({ size: 256 }))
     .addFields(
-      { name: '🆔 ID', value: alvo.id, inline: true },
-      { name: '🏷️ Apelido', value: alvo.nickname || 'Nenhum', inline: true },
+      { name: `${E.info} ID`, value: `\`${alvo.id}\``, inline: true },
+      { name: `${E.usuario} Apelido`, value: alvo.nickname || 'Nenhum', inline: true },
       { name: '📅 Conta criada', value: `<t:${Math.floor(alvo.user.createdTimestamp / 1000)}:R>`, inline: true },
       { name: '📥 Entrou no servidor', value: `<t:${Math.floor(alvo.joinedTimestamp / 1000)}:R>`, inline: true },
       { name: '⭐ Nível', value: `${user.nivel} (${user.xp} XP)`, inline: true },
-      { name: '🪙 Moedas', value: `${(user.moedas + user.banco).toLocaleString('pt-BR')}`, inline: true },
-      { name: `🏅 Cargos (${alvo.roles.cache.size - 1})`, value: cargos, inline: false },
+      { name: `${E.carrinho} Moedas`, value: (user.moedas + user.banco).toLocaleString('pt-BR'), inline: true },
+      { name: `${E.escudo} Cargos (${alvo.roles.cache.size - 1})`, value: cargos, inline: false },
     )
-    .setTimestamp().setFooter({ text: 'TASD — Todos Aqui São Donos' });
+    .setTimestamp().setFooter({ text: msg.guild.name });
   msg.reply({ embeds: [e] });
 };
 
@@ -180,6 +237,7 @@ commands['serverinfo'] = async (client, msg, args) => {
   const g = msg.guild;
   await g.fetch();
   const bots = g.members.cache.filter(m => m.user.bot).size;
+
   const humanos = g.memberCount - bots;
   const e = new EmbedBuilder()
     .setColor(COR)
@@ -193,51 +251,48 @@ commands['serverinfo'] = async (client, msg, args) => {
       { name: '📢 Canais', value: `${g.channels.cache.size}`, inline: true },
       { name: '🏅 Cargos', value: `${g.roles.cache.size}`, inline: true },
       { name: '😄 Emojis', value: `${g.emojis.cache.size}`, inline: true },
-      { name: '🔒 Verificação', value: g.verificationLevel.toString(), inline: true },
+      { name: `${E.escudo} Verificação`, value: g.verificationLevel.toString(), inline: true },
       { name: '🚀 Boosts', value: `${g.premiumSubscriptionCount || 0} (Nível ${g.premiumTier})`, inline: true },
     )
-    .setTimestamp().setFooter({ text: 'TASD — Todos Aqui São Donos' });
+    .setTimestamp().setFooter({ text: g.name });
   msg.reply({ embeds: [e] });
 };
 
 // ─── PERFIL ───────────────────────────────────────────────────────────────────
 commands['perfil'] = async (client, msg, args) => {
   const alvo = msg.mentions.users.first() || msg.author;
-  const db = client.loadDB();
-  const user = client.getUser(db, alvo.id);
+  const user = getUser(alvo.id);
   const xpNeeded = (user.nivel + 1) * 100;
+  const barraLen = 10;
+  const preenchido = Math.floor((user.xp / xpNeeded) * barraLen);
+  const barra = '█'.repeat(preenchido) + '░'.repeat(barraLen - preenchido);
   const e = new EmbedBuilder()
     .setColor(COR)
-    .setTitle(`👤 Perfil — ${alvo.username}`)
+    .setAuthor({ name: alvo.tag, iconURL: alvo.displayAvatarURL() })
     .setThumbnail(alvo.displayAvatarURL({ size: 256 }))
     .addFields(
-      { name: '⭐ Nível', value: `${user.nivel}`, inline: true },
-      { name: '✨ XP', value: `${user.xp} / ${xpNeeded}`, inline: true },
+      { name: `${E.info} Nível`, value: `**${user.nivel}**`, inline: true },
+      { name: '✨ XP', value: `${user.xp} / ${xpNeeded}\n\`${barra}\``, inline: true },
       { name: '💍 Casado com', value: user.casadoCom ? `<@${user.casadoCom}>` : 'Solteiro(a)', inline: true },
-      { name: '🪙 Carteira', value: (user.moedas).toLocaleString('pt-BR'), inline: true },
-      { name: '🏦 Banco', value: (user.banco).toLocaleString('pt-BR'), inline: true },
-      { name: '💰 Total', value: (user.moedas + user.banco).toLocaleString('pt-BR'), inline: true },
+      { name: `${E.carrinho} Carteira`, value: (user.moedas || 0).toLocaleString('pt-BR'), inline: true },
+      { name: '🏦 Banco', value: (user.banco || 0).toLocaleString('pt-BR'), inline: true },
+      { name: '💰 Total', value: ((user.moedas || 0) + (user.banco || 0)).toLocaleString('pt-BR'), inline: true },
     )
-    .setTimestamp().setFooter({ text: 'TASD — Todos Aqui São Donos' });
+    .setTimestamp().setFooter({ text: msg.guild?.name || 'TASD Bot' });
   msg.reply({ embeds: [e] });
 };
 
 // ─── XP ───────────────────────────────────────────────────────────────────────
 commands['xp'] = async (client, msg, args) => {
   const alvo = msg.mentions.users.first() || msg.author;
-  const db = client.loadDB();
-  const user = client.getUser(db, alvo.id);
+  const user = getUser(alvo.id);
   const xpNeeded = (user.nivel + 1) * 100;
-  msg.reply({ embeds: [embed('✨ XP', `**${alvo.username}**\nNível: **${user.nivel}**\nXP: **${user.xp} / ${xpNeeded}**`)] });
+  msg.reply({ embeds: [embed(`${E.info} XP — ${alvo.username}`, `Nível: **${user.nivel}**\nXP: **${user.xp} / ${xpNeeded}**`)] });
 };
 
 // ─── RANKING XP ───────────────────────────────────────────────────────────────
 commands['rankingxp'] = async (client, msg, args) => {
-  const db = client.loadDB();
-  const membros = Object.entries(db.users)
-    .map(([id, u]) => ({ id, nivel: u.nivel || 0, xp: u.xp || 0 }))
-    .sort((a, b) => b.nivel !== a.nivel ? b.nivel - a.nivel : b.xp - a.xp)
-    .slice(0, 10);
+  const membros = getRankingXP(10);
   const medals = ['🥇', '🥈', '🥉'];
   const lista = membros.map((m, i) => `${medals[i] || `**${i + 1}.**`} <@${m.id}> — Nível **${m.nivel}** (${m.xp} XP)`).join('\n') || 'Ninguém ainda.';
   msg.reply({ embeds: [embed('🏆 Ranking de XP', lista)] });
@@ -363,8 +418,7 @@ async function slashTicket(client, interaction) {
 
 async function slashPerfil(client, interaction) {
   const alvo = interaction.options.getUser('usuario') || interaction.user;
-  const db = client.loadDB();
-  const user = client.getUser(db, alvo.id);
+  const user = getUser(alvo.id);
   const xpNeeded = (user.nivel + 1) * 100;
   const e = new EmbedBuilder()
     .setColor(COR)
@@ -384,10 +438,7 @@ async function slashPerfil(client, interaction) {
 
 async function slashRankingXP(client, interaction) {
   const db = client.loadDB();
-  const membros = Object.entries(db.users)
-    .map(([id, u]) => ({ id, nivel: u.nivel || 0, xp: u.xp || 0 }))
-    .sort((a, b) => b.nivel !== a.nivel ? b.nivel - a.nivel : b.xp - a.xp)
-    .slice(0, 10);
+  const membros = getRankingXP(10);
   const medals = ['🥇', '🥈', '🥉'];
   const lista = membros.map((m, i) => `${medals[i] || `**${i + 1}.**`} <@${m.id}> — Nível **${m.nivel}** (${m.xp} XP)`).join('\n') || 'Ninguém ainda.';
   interaction.reply({ embeds: [embed('🏆 Ranking de XP', lista)] });
@@ -395,8 +446,7 @@ async function slashRankingXP(client, interaction) {
 
 async function slashUserinfo(client, interaction) {
   const alvo = interaction.options.getMember('usuario') || interaction.member;
-  const db = client.loadDB();
-  const user = client.getUser(db, alvo.id);
+  const user = getUser(alvo.id);
   const cargos = alvo.roles.cache.filter(r => r.id !== interaction.guild.id).sort((a, b) => b.position - a.position).map(r => r.toString()).slice(0, 5).join(', ') || 'Nenhum';
   const e = new EmbedBuilder()
     .setColor(alvo.displayHexColor || COR)
