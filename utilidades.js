@@ -27,6 +27,34 @@ const E = {
   warning:     '<a:WARNING:1366624152718676021>',
 };
 
+// Função para verificar se emoji existe no servidor
+function getEmoji(guild, emojiName) {
+  if (!guild) return E[emojiName] || '❓'; // Fallback
+
+  // Para emojis customizados, verificar se existem
+  const emojiId = E[emojiName]?.match(/:(\d+)>/)?.[1];
+  if (emojiId && guild.emojis.cache.has(emojiId)) {
+    return E[emojiName];
+  }
+
+  // Fallback para emojis padrão
+  const fallbacks = {
+    staff: '👑',
+    staff2: '🛡️',
+    membro: '👤',
+    regras: '📋',
+    shop: '🛒',
+    aviso: '⚠️',
+    warning: '🚨',
+    info: 'ℹ️',
+    seta: '➡️',
+    verificado: '✅',
+    nverificado: '❌'
+  };
+
+  return fallbacks[emojiName] || '❓';
+}
+
 function embed(titulo, descricao, cor = COR) {
   return new EmbedBuilder().setColor(cor).setTitle(titulo).setDescription(descricao)
     .setTimestamp().setFooter({ text: 'TASD — Todos Aqui São Donos' });
@@ -202,7 +230,7 @@ commands['censurar'] = async (client, msg, args) => {
   msg.delete().catch(() => {});
   if (acao === 'on') {
     client.usuariosCensurados.add(alvo.id);
-    msg.author.send(`${E.verificado} Censura ativada para **${alvo.user.username}**.`).catch(() => {});
+    msg.author.send(`${getEmoji(msg.guild, 'verificado')} Censura ativada para **${alvo.user.username}**.`).catch(() => {});
   } else {
     client.usuariosCensurados.delete(alvo.id);
     if (client.censuradoAviso) client.censuradoAviso.delete(alvo.id);
@@ -220,13 +248,13 @@ commands['userinfo'] = async (client, msg, args) => {
     .setAuthor({ name: alvo.user.tag, iconURL: alvo.user.displayAvatarURL() })
     .setThumbnail(alvo.user.displayAvatarURL({ size: 256 }))
     .addFields(
-      { name: `${E.info} ID`, value: `\`${alvo.id}\``, inline: true },
-      { name: `${E.membro} Apelido`, value: alvo.nickname || 'Nenhum', inline: true },
+      { name: `${getEmoji(msg.guild, 'info')} ID`, value: `\`${alvo.id}\``, inline: true },
+      { name: `${getEmoji(msg.guild, 'membro')} Apelido`, value: alvo.nickname || 'Nenhum', inline: true },
       { name: '📅 Conta criada', value: `<t:${Math.floor(alvo.user.createdTimestamp / 1000)}:R>`, inline: true },
       { name: '📥 Entrou no servidor', value: `<t:${Math.floor(alvo.joinedTimestamp / 1000)}:R>`, inline: true },
       { name: '⭐ Nível', value: `${user.nivel} (${user.xp} XP)`, inline: true },
-      { name: `${E.shop} Moedas`, value: (user.moedas + user.banco).toLocaleString('pt-BR'), inline: true },
-      { name: `${E.staff} Cargos (${alvo.roles.cache.size - 1})`, value: cargos, inline: false },
+      { name: `${getEmoji(msg.guild, 'shop')} Moedas`, value: (user.moedas + user.banco).toLocaleString('pt-BR'), inline: true },
+      { name: `${getEmoji(msg.guild, 'staff')} Cargos (${alvo.roles.cache.size - 1})`, value: cargos, inline: false },
     )
     .setTimestamp().setFooter({ text: msg.guild.name });
   msg.reply({ embeds: [e] });
@@ -251,7 +279,7 @@ commands['serverinfo'] = async (client, msg, args) => {
       { name: '📢 Canais', value: `${g.channels.cache.size}`, inline: true },
       { name: '🏅 Cargos', value: `${g.roles.cache.size}`, inline: true },
       { name: '😄 Emojis', value: `${g.emojis.cache.size}`, inline: true },
-      { name: `${E.staff} Verificação`, value: g.verificationLevel.toString(), inline: true },
+      { name: `${getEmoji(msg.guild, 'staff')} Verificação`, value: g.verificationLevel.toString(), inline: true },
       { name: '🚀 Boosts', value: `${g.premiumSubscriptionCount || 0} (Nível ${g.premiumTier})`, inline: true },
     )
     .setTimestamp().setFooter({ text: g.name });
@@ -271,10 +299,10 @@ commands['perfil'] = async (client, msg, args) => {
     .setAuthor({ name: alvo.tag, iconURL: alvo.displayAvatarURL() })
     .setThumbnail(alvo.displayAvatarURL({ size: 256 }))
     .addFields(
-      { name: `${E.info} Nível`, value: `**${user.nivel}**`, inline: true },
+      { name: `${getEmoji(msg.guild, 'info')} Nível`, value: `**${user.nivel}**`, inline: true },
       { name: '✨ XP', value: `${user.xp} / ${xpNeeded}\n\`${barra}\``, inline: true },
       { name: '💍 Casado com', value: user.casadoCom ? `<@${user.casadoCom}>` : 'Solteiro(a)', inline: true },
-      { name: `${E.shop} Carteira`, value: (user.moedas || 0).toLocaleString('pt-BR'), inline: true },
+      { name: `${getEmoji(msg.guild, 'shop')} Carteira`, value: (user.moedas || 0).toLocaleString('pt-BR'), inline: true },
       { name: '🏦 Banco', value: (user.banco || 0).toLocaleString('pt-BR'), inline: true },
       { name: '💰 Total', value: ((user.moedas || 0) + (user.banco || 0)).toLocaleString('pt-BR'), inline: true },
     )
@@ -287,7 +315,7 @@ commands['xp'] = async (client, msg, args) => {
   const alvo = msg.mentions.users.first() || msg.author;
   const user = getUser(alvo.id);
   const xpNeeded = (user.nivel + 1) * 100;
-  msg.reply({ embeds: [embed(`${E.info} XP — ${alvo.username}`, `Nível: **${user.nivel}**\nXP: **${user.xp} / ${xpNeeded}**`)] });
+  msg.reply({ embeds: [embed(`${getEmoji(msg.guild, 'info')} XP — ${alvo.username}`, `Nível: **${user.nivel}**\nXP: **${user.xp} / ${xpNeeded}**`)] });
 };
 
 // ─── RANKING XP ───────────────────────────────────────────────────────────────

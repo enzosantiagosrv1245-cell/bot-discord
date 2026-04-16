@@ -25,6 +25,34 @@ const E = {
   aviso:         '<:aviso:1492161793005584495>',
   warning:       '<a:WARNING:1366624152718676021>',
 };
+
+// Função para verificar se emoji existe no servidor
+function getEmoji(guild, emojiName) {
+  if (!guild) return E[emojiName] || '❓'; // Fallback
+
+  // Para emojis customizados, verificar se existem
+  const emojiId = E[emojiName]?.match(/:(\d+)>/)?.[1];
+  if (emojiId && guild.emojis.cache.has(emojiId)) {
+    return E[emojiName];
+  }
+
+  // Fallback para emojis padrão
+  const fallbacks = {
+    staff: '👑',
+    staff2: '🛡️',
+    membro: '👤',
+    regras: '📋',
+    shop: '🛒',
+    aviso: '⚠️',
+    warning: '🚨',
+    info: 'ℹ️',
+    seta: '➡️',
+    verificado: '✅',
+    nverificado: '❌'
+  };
+
+  return fallbacks[emojiName] || '❓';
+}
 client_emojis = E;
 
 // ─── Aliases ──────────────────────────────────────────────────────────────────
@@ -116,8 +144,8 @@ client.on('guildMemberAdd', async (member) => {
     const logCanal = member.guild.channels.cache.find(c => /log|mod|audit/i.test(c.name));
     if (logCanal) {
       logCanal.send({ embeds: [new EmbedBuilder().setColor(0xFF0000)
-        .setTitle(`${E.warning} Anti-Raid Ativado ${E.warning}`)
-        .setDescription(`**${member.user.tag}** foi removido automaticamente.\n${E.aviso} Flood detectado: **${log.length} entradas em 10 segundos**.`)
+        .setTitle(`${getEmoji(guild, 'warning')} Anti-Raid Ativado ${getEmoji(guild, 'warning')}`)
+        .setDescription(`**${member.user.tag}** foi removido automaticamente.\n${getEmoji(guild, 'aviso')} Flood detectado: **${log.length} entradas em 10 segundos**.`)
         .setTimestamp().setFooter({ text: `${member.guild.name} • Anti-Raid` })] }).catch(() => {});
     }
     return;
@@ -132,13 +160,13 @@ client.on('guildMemberAdd', async (member) => {
   const embed = new EmbedBuilder()
     .setColor(COR)
     .setAuthor({ name: member.guild.name, iconURL: member.guild.iconURL() })
-    .setTitle(`${E.seta} Bem-vindo(a), ${member.user.username}!`)
+    .setTitle(`${getEmoji(member.guild, 'seta')} Bem-vindo(a), ${member.user.username}!`)
     .setDescription(
       `Olá, ${member}! Ficamos felizes em ter você aqui.\n\n` +
-      `${E.regras} **Leia as regras** do servidor antes de interagir.\n` +
-      `${E.info} **Apresente-se** nos canais de introdução.\n` +
-      `${E.shop} Use \`r.ajuda\` para ver todos os comandos.\n` +
-      `${E.staff} Respeite todos os membros.\n\n` +
+      `${getEmoji(member.guild, 'regras')} **Leia as regras** do servidor antes de interagir.\n` +
+      `${getEmoji(member.guild, 'info')} **Apresente-se** nos canais de introdução.\n` +
+      `${getEmoji(message.guild, 'shop')} Use \`r.ajuda\` para ver todos os comandos.\n` +
+      `${getEmoji(message.guild, 'staff')} Respeite todos os membros.\n\n` +
       `*Esperamos que você aproveite a comunidade!* 🎉`
     )
     .setThumbnail(member.user.displayAvatarURL({ size: 256 }))
@@ -196,7 +224,7 @@ client.on('messageCreate', async (message) => {
       censuradoAviso.add(message.author.id);
       message.author.send({ embeds: [new EmbedBuilder()
         .setColor(0xFF0000)
-        .setTitle(`${E.warning} VOCÊ FOI CASTIGADO ${E.warning}`)
+        .setTitle(`${getEmoji(message.guild, 'warning')} VOCÊ FOI CASTIGADO ${getEmoji(message.guild, 'warning')}`)
         .setDescription('Suas mensagens estão sendo **removidas automaticamente**.\nEntre em contato com a staff para mais informações.')
         .setFooter({ text: message.guild.name }).setTimestamp()]
       }).catch(() => {});
@@ -207,7 +235,7 @@ client.on('messageCreate', async (message) => {
   // Anti-spam
   if (checkSpam(message.author.id)) {
     message.delete().catch(() => {});
-    const aviso = await message.channel.send({ content: `${E.aviso} ${message.author}, você está enviando mensagens rápido demais. Aguarde um momento.` }).catch(() => {});
+    const aviso = await message.channel.send({ content: `${getEmoji(message.guild, 'aviso')} ${message.author}, você está enviando mensagens rápido demais. Aguarde um momento.` }).catch(() => {});
     if (aviso) setTimeout(() => aviso.delete().catch(() => {}), 5000);
     return;
   }
@@ -250,8 +278,8 @@ client.on('messageCreate', async (message) => {
     const alvo = message.mentions.users.first() || message.author;
     const count = msgCount.get(alvo.id) || 0;
     return message.reply({ embeds: [new EmbedBuilder().setColor(COR)
-      .setTitle(`${E.info} Contador de Mensagens`)
-      .setDescription(`${E.membro} **${alvo.username}** enviou **${count.toLocaleString('pt-BR')} mensagens** nesta sessão.`)
+      .setTitle(`${getEmoji(message.guild, 'info')} Contador de Mensagens`)
+      .setDescription(`${getEmoji(message.guild, 'membro')} **${alvo.username}** enviou **${count.toLocaleString('pt-BR')} mensagens** nesta sessão.`)
       .setThumbnail(alvo.displayAvatarURL()).setTimestamp()
       .setFooter({ text: 'Contagem desde o último restart do bot' })] });
   }
