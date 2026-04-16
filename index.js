@@ -150,13 +150,25 @@ client.on('guildMemberAdd', async (member) => {
 
 // ─── Whitelist ────────────────────────────────────────────────────────────────
 client.on('guildCreate', async (guild) => {
-  if (!ALLOWED_GUILDS.includes(guild.id)) {
-    const owner = await guild.fetchOwner().catch(() => null);
+  const owner = await guild.fetchOwner().catch(() => null);
+
+  // Verificação primária: Apenas o dono autorizado pode adicionar o bot
+  const OWNER_AUTHORIZED = '1384263522422231201';
+  if (!owner || owner.id !== OWNER_AUTHORIZED) {
     if (owner) owner.send({ embeds: [new EmbedBuilder().setColor(COR)
-      .setTitle('❌ Acesso Negado')
-      .setDescription('Este bot é **privado** e não está autorizado para este servidor.')
-      .setFooter({ text: 'TASD Bot' })] }).catch(() => {});
+      .setTitle('🚫 Acesso Negado - Segurança Máxima')
+      .setDescription('Este bot é **exclusivo** e só pode ser adicionado por seu desenvolvedor autorizado.\n\nPara solicitar acesso, entre em contato com o administrador.')
+      .setFooter({ text: 'TASD Bot - Sistema de Segurança' })] }).catch(() => {});
     await guild.leave();
+    return;
+  }
+
+  // Verificação secundária: Whitelist de servidores (backup)
+  if (!ALLOWED_GUILDS.includes(guild.id)) {
+    if (owner) owner.send({ embeds: [new EmbedBuilder().setColor(COR)
+      .setTitle('⚠️ Servidor Não Autorizado')
+      .setDescription('Este servidor não está na lista de autorizados, mas como você é o desenvolvedor, o bot permanecerá.\n\nPara adicionar mais servidores, atualize a lista `ALLOWED_GUILDS`.')
+      .setFooter({ text: 'TASD Bot' })] }).catch(() => {});
   }
 });
 
