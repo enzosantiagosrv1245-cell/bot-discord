@@ -1,5 +1,6 @@
 const { Client, GatewayIntentBits, Partials, Collection, REST, Routes, SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder, PermissionFlagsBits } = require('discord.js');
 const express = require('express');
+require('dotenv').config();
 
 // ─── Config ───────────────────────────────────────────────────────────────────
 const PREFIX = 'r.';
