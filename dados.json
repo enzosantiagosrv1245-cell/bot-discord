@@ -1,0 +1,65 @@
+{
+  "users": {
+    "1384263522422231201": {
+      "moedas": 0,
+      "banco": 0,
+      "xp": 47,
+      "nivel": 0,
+      "daily": 0,
+      "trabalho": 0,
+      "crime": 0,
+      "pesca": 0,
+      "mineracao": 0,
+      "inventario": [],
+      "plantando": null,
+      "plantaColher": null,
+      "casadoCom": null
+    },
+    "1464760965324079177": {
+      "moedas": 0,
+      "banco": 0,
+      "xp": 34,
+      "nivel": 0,
+      "daily": 0,
+      "trabalho": 0,
+      "crime": 0,
+      "pesca": 0,
+      "mineracao": 0,
+      "inventario": [],
+      "plantando": null,
+      "plantaColher": null,
+      "casadoCom": null
+    },
+    "1486128831080169633": {
+      "moedas": 0,
+      "banco": 0,
+      "xp": 7,
+      "nivel": 0,
+      "daily": 0,
+      "trabalho": 0,
+      "crime": 0,
+      "pesca": 0,
+      "mineracao": 0,
+      "inventario": [],
+      "plantando": null,
+      "plantaColher": null,
+      "casadoCom": null
+    },
+    "840676882227920927": {
+      "moedas": 0,
+      "banco": 0,
+      "xp": 6,
+      "nivel": 0,
+      "daily": 0,
+      "trabalho": 0,
+      "crime": 0,
+      "pesca": 0,
+      "mineracao": 0,
+      "inventario": [],
+      "plantando": null,
+      "plantaColher": null,
+      "casadoCom": null
+    }
+  },
+  "loteria": {}
+}

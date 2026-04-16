@@ -207,3 +207,5 @@ commands['letra'] = async (client, msg, args) => {
 };
 
 module.exports = { commands };
+
+//diversao.js

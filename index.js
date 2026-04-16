@@ -1,61 +1,29 @@
 const { Client, GatewayIntentBits, Partials, Collection, REST, Routes, SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder, PermissionFlagsBits } = require('discord.js');
 const express = require('express');
-require('dotenv').config();
 
-// ─── Config ───────────────────────────────────────────────────────────────────
 const PREFIX = 'r.';
 const TOKEN = process.env.TOKEN;
 const CLIENT_ID = process.env.CLIENT_ID;
 const ALLOWED_GUILDS = ['1464332991747588285', '1275809598242291773', '1493335577733501169', '1491441256323223712', '1476270039408705738', '1493740061873934469'];
 const CENSURA_OWNER = ['1384263522422231201'];
 const PARCERIA_STAFF = '1489775575802315045';
+const CANAL_STAFF_LOG = '1491133454870380776';
 const COR = 0xE53935;
 
-// ─── Emojis customizados ──────────────────────────────────────────────────────
 const E = {
-  verificado:    '<:verificado:1482444634125766806>',
-  nverificado:   '<:nverificado:1482444770793226422>',
-  seta:          '<a:seta:1494389872754954511>',
-  staff:         '<:staff:1494389821957869679>',
-  staff2:        '<:staff2:1494389791981310162>',
-  info:          '<:info:1492161517846659342>',
-  membro:        '<:membro:1494389688855695370>',
-  regras:        '<:regras:1494389661009842217>',
-  shop:          '<:shop:1494389631397920798>',
-  aviso:         '<:aviso:1492161793005584495>',
-  warning:       '<a:WARNING:1366624152718676021>',
+  verificado:  '<:verificado:1482444634125766806>',
+  nverificado: '<:nverificado:1482444770793226422>',
+  seta:        '<a:seta:1494389872754954511>',
+  staff:       '<:staff:1494389821957869679>',
+  staff2:      '<:staff2:1494389791981310162>',
+  info:        '<:info:1492161517846659342>',
+  membro:      '<:membro:1494389688855695370>',
+  regras:      '<:regras:1494389661009842217>',
+  shop:        '<:shop:1494389631397920798>',
+  aviso:       '<:aviso:1492161793005584495>',
+  warning:     '<a:WARNING:1366624152718676021>',
 };
 
-// Função para verificar se emoji existe no servidor
-function getEmoji(guild, emojiName) {
-  if (!guild) return E[emojiName] || '❓'; // Fallback
-
-  // Para emojis customizados, verificar se existem
-  const emojiId = E[emojiName]?.match(/:(\d+)>/)?.[1];
-  if (emojiId && guild.emojis.cache.has(emojiId)) {
-    return E[emojiName];
-  }
-
-  // Fallback para emojis padrão
-  const fallbacks = {
-    staff: '👑',
-    staff2: '🛡️',
-    membro: '👤',
-    regras: '📋',
-    shop: '🛒',
-    aviso: '⚠️',
-    warning: '🚨',
-    info: 'ℹ️',
-    seta: '➡️',
-    verificado: '✅',
-    nverificado: '❌'
-  };
-
-  return fallbacks[emojiName] || '❓';
-}
-client_emojis = E;
-
-// ─── Aliases ──────────────────────────────────────────────────────────────────
 const ALIASES = {
   'help':'ajuda','h':'ajuda','ui':'userinfo','si':'serverinfo','sv':'serverinfo','p':'perfil',
   'dep':'depositar','sac':'sacar','work':'trabalhar','trab':'trabalhar','bal':'banco','saldo':'banco',
@@ -67,7 +35,6 @@ const ALIASES = {
   'msg':'mensagens',
 };
 
-// ─── Client ───────────────────────────────────────────────────────────────────
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages,
@@ -83,127 +50,120 @@ client.PARCERIA_STAFF = PARCERIA_STAFF;
 client.COR = COR;
 client.E = E;
 
+// ─── DB Firebase ──────────────────────────────────────────────────────────────
+let getUser, saveUser, ensureUser, getLoteria, saveLoteria, getRankingMoedas, getRankingXP, initCache;
+try {
+  const db = require('./db-firebase');
+  getUser = db.getUser; saveUser = db.saveUser; ensureUser = db.ensureUser;
+  getLoteria = db.getLoteria; saveLoteria = db.saveLoteria;
+  getRankingMoedas = db.getRankingMoedas; getRankingXP = db.getRankingXP;
+  initCache = db.initCache;
+  console.log('[TASD Bot] Firebase carregado.');
+} catch (e) {
+  console.warn('[TASD Bot] Firebase falhou, usando JSON:', e.message);
+  const fs = require('fs'), path = require('path');
+  const DB_PATH = path.join(__dirname, 'dados.json');
+  const _cache = {};
+  const loadDB = () => { if (!fs.existsSync(DB_PATH)) fs.writeFileSync(DB_PATH, JSON.stringify({ users: {}, loteria: {} })); return JSON.parse(fs.readFileSync(DB_PATH)); };
+  const saveDB = d => fs.writeFileSync(DB_PATH, JSON.stringify(d, null, 2));
+  const DEF = () => ({ moedas:0,banco:0,xp:0,nivel:0,daily:0,trabalho:0,crime:0,pesca:0,mineracao:0,inventario:[],plantando:null,plantaColher:null,casadoCom:null });
+  getUser = (id) => { if (!_cache[id]) { const db2 = loadDB(); _cache[id] = db2.users[id] || DEF(); } return _cache[id]; };
+  saveUser = (id, data) => { if (!_cache[id]) _cache[id] = DEF(); Object.assign(_cache[id], data); const db2 = loadDB(); db2.users[id] = _cache[id]; saveDB(db2); };
+  ensureUser = async (id) => getUser(id);
+  getLoteria = (gId) => { const db2 = loadDB(); return db2.loteria[gId] || { participantes:[], pote:0 }; };
+  saveLoteria = (gId, data) => { const db2 = loadDB(); db2.loteria[gId] = data; saveDB(db2); };
+  getRankingMoedas = (n=10) => Object.entries(_cache).map(([id,u])=>({id,moedas:u.moedas||0,banco:u.banco||0})).sort((a,b)=>(b.moedas+b.banco)-(a.moedas+a.banco)).slice(0,n);
+  getRankingXP = (n=10) => Object.entries(_cache).map(([id,u])=>({id,nivel:u.nivel||0,xp:u.xp||0})).sort((a,b)=>b.nivel-a.nivel||b.xp-a.xp).slice(0,n);
+  initCache = async () => { const db2 = loadDB(); Object.assign(_cache, db2.users); };
+}
+client.getUser = getUser; client.saveUser = saveUser; client.ensureUser = ensureUser;
+client.getLoteria = getLoteria; client.saveLoteria = saveLoteria;
+client.getRankingMoedas = getRankingMoedas; client.getRankingXP = getRankingXP;
+
 const economia = require('./economia');
 const diversao = require('./diversao');
 const utilidades = require('./utilidades');
 
-// ─── DB ───────────────────────────────────────────────────────────────────────
-let getUser, saveUser, getLoteria, saveLoteria, getRankingMoedas, getRankingXP;
-try {
-  const db = require('./db');
-  getUser = db.getUser; saveUser = db.saveUser;
-  getLoteria = db.getLoteria; saveLoteria = db.saveLoteria;
-  getRankingMoedas = db.getRankingMoedas; getRankingXP = db.getRankingXP;
-  console.log('[TASD Bot] SQLite carregado.');
-} catch {
-  // Fallback JSON enquanto ainda não migrou
-  const fs = require('fs'), path = require('path');
-  const DB_PATH = path.join(__dirname, 'dados.json');
-  const loadDB = () => { if (!fs.existsSync(DB_PATH)) fs.writeFileSync(DB_PATH, JSON.stringify({ users: {}, loteria: {} })); return JSON.parse(fs.readFileSync(DB_PATH)); };
-  const saveDB = d => fs.writeFileSync(DB_PATH, JSON.stringify(d, null, 2));
-  getUser = (id) => { const db = loadDB(); if (!db.users[id]) db.users[id] = { moedas:0,banco:0,xp:0,nivel:0,daily:0,trabalho:0,crime:0,pesca:0,mineracao:0,inventario:[],plantando:null,plantaColher:null,casadoCom:null }; saveDB(db); return db.users[id]; };
-  saveUser = (id, data) => { const db = loadDB(); Object.assign(db.users[id] || {}, data); saveDB(db); };
-  getLoteria = (gId) => { const db = loadDB(); if (!db.loteria[gId]) db.loteria[gId] = { participantes:[], pote:0 }; return db.loteria[gId]; };
-  saveLoteria = (gId, data) => { const db = loadDB(); db.loteria[gId] = data; saveDB(db); };
-  getRankingMoedas = (n=10) => { const db = loadDB(); return Object.entries(db.users).map(([id,u])=>({id,moedas:u.moedas||0,banco:u.banco||0})).sort((a,b)=>(b.moedas+b.banco)-(a.moedas+a.banco)).slice(0,n); };
-  getRankingXP = (n=10) => { const db = loadDB(); return Object.entries(db.users).map(([id,u])=>({id,nivel:u.nivel||0,xp:u.xp||0})).sort((a,b)=>b.nivel-a.nivel||b.xp-a.xp).slice(0,n); };
-  console.log('[TASD Bot] Fallback JSON carregado.');
-}
-client.getUser = getUser; client.saveUser = saveUser;
-client.getLoteria = getLoteria; client.saveLoteria = saveLoteria;
-client.getRankingMoedas = getRankingMoedas; client.getRankingXP = getRankingXP;
-
-// ─── Anti-spam ────────────────────────────────────────────────────────────────
-const spamMap = new Map(); // userId => { count, last }
+// ─── Anti-spam melhorado ──────────────────────────────────────────────────────
+const spamMap = new Map();    // userId => { count, last, warned }
+const spamTimeout = new Map(); // userId => timestamp de fim do castigo
 
 function checkSpam(userId) {
   const agora = Date.now();
-  const s = spamMap.get(userId) || { count: 0, last: 0 };
-  if (agora - s.last < 4000) { s.count++; } else { s.count = 1; }
+  const s = spamMap.get(userId) || { count: 0, last: 0, warned: false };
+  if (agora - s.last < 3000) { s.count++; } else { s.count = 1; s.warned = false; }
   s.last = agora;
   spamMap.set(userId, s);
-  return s.count >= 6; // 6 msgs em 4s = spam
+  return s.count >= 5;
 }
 
 // ─── Anti-raid ────────────────────────────────────────────────────────────────
-const joinLog = new Map(); // guildId => [timestamps]
+const joinLog = new Map();
 
 client.on('guildMemberAdd', async (member) => {
   if (!ALLOWED_GUILDS.includes(member.guild.id)) return;
 
-  const guildId = member.guild.id;
+  const gId = member.guild.id;
   const agora = Date.now();
-  if (!joinLog.has(guildId)) joinLog.set(guildId, []);
-  const log = joinLog.get(guildId).filter(t => agora - t < 10000);
+  if (!joinLog.has(gId)) joinLog.set(gId, []);
+  const log = joinLog.get(gId).filter(t => agora - t < 10000);
   log.push(agora);
-  joinLog.set(guildId, log);
+  joinLog.set(gId, log);
 
-  // 5+ entradas em 10s = raid
   if (log.length >= 5) {
-    await member.kick('Anti-raid automático: flood de entradas.').catch(() => {});
-    const logCanal = member.guild.channels.cache.find(c => /log|mod|audit/i.test(c.name));
+    await member.kick('Anti-raid: flood de entradas detectado.').catch(() => {});
+    const logCanal = member.guild.channels.cache.get(CANAL_STAFF_LOG) ||
+                     member.guild.channels.cache.find(c => /log|mod|audit/i.test(c.name));
     if (logCanal) {
       logCanal.send({ embeds: [new EmbedBuilder().setColor(0xFF0000)
-        .setTitle(`${getEmoji(guild, 'warning')} Anti-Raid Ativado ${getEmoji(guild, 'warning')}`)
-        .setDescription(`**${member.user.tag}** foi removido automaticamente.\n${getEmoji(guild, 'aviso')} Flood detectado: **${log.length} entradas em 10 segundos**.`)
+        .setTitle(`${E.warning} Anti-Raid Ativado ${E.warning}`)
+        .setDescription(`**${member.user.tag}** foi removido automaticamente.\n${E.aviso} Flood detectado: **${log.length} entradas em 10 segundos**.`)
         .setTimestamp().setFooter({ text: `${member.guild.name} • Anti-Raid` })] }).catch(() => {});
     }
     return;
   }
 
-  // Boas-vindas
   const bvCanal = member.guild.channels.cache.find(c =>
     /boas.vinda|welcome|entrada|geral|chat.geral/i.test(c.name)
   );
   if (!bvCanal) return;
 
-  const embed = new EmbedBuilder()
+  const emb = new EmbedBuilder()
     .setColor(COR)
     .setAuthor({ name: member.guild.name, iconURL: member.guild.iconURL() })
-    .setTitle(`${getEmoji(member.guild, 'seta')} Bem-vindo(a), ${member.user.username}!`)
+    .setTitle(`${E.seta} Bem-vindo(a), ${member.user.username}!`)
     .setDescription(
       `Olá, ${member}! Ficamos felizes em ter você aqui.\n\n` +
-      `${getEmoji(member.guild, 'regras')} **Leia as regras** do servidor antes de interagir.\n` +
-      `${getEmoji(member.guild, 'info')} **Apresente-se** nos canais de introdução.\n` +
-      `${getEmoji(message.guild, 'shop')} Use \`r.ajuda\` para ver todos os comandos.\n` +
-      `${getEmoji(message.guild, 'staff')} Respeite todos os membros.\n\n` +
+      `${E.regras} **Leia as regras** antes de interagir.\n` +
+      `${E.info} **Apresente-se** nos canais de introdução.\n` +
+      `${E.shop} Use \`r.ajuda\` para ver os comandos.\n` +
+      `${E.staff} Respeite todos os membros.\n\n` +
       `*Esperamos que você aproveite a comunidade!* 🎉`
     )
     .setThumbnail(member.user.displayAvatarURL({ size: 256 }))
     .setFooter({ text: `${member.guild.name} • Membro #${member.guild.memberCount}` })
     .setTimestamp();
 
-  bvCanal.send({ embeds: [embed] }).catch(() => {});
+  bvCanal.send({ embeds: [emb] }).catch(() => {});
 });
 
 // ─── Whitelist ────────────────────────────────────────────────────────────────
 client.on('guildCreate', async (guild) => {
-  const owner = await guild.fetchOwner().catch(() => null);
-
-  // Verificação primária: Apenas o dono autorizado pode adicionar o bot
-  const OWNER_AUTHORIZED = '1384263522422231201';
-  if (!owner || owner.id !== OWNER_AUTHORIZED) {
-    if (owner) owner.send({ embeds: [new EmbedBuilder().setColor(COR)
-      .setTitle('🚫 Acesso Negado - Segurança Máxima')
-      .setDescription('Este bot é **exclusivo** e só pode ser adicionado por seu desenvolvedor autorizado.\n\nPara solicitar acesso, entre em contato com o administrador.')
-      .setFooter({ text: 'TASD Bot - Sistema de Segurança' })] }).catch(() => {});
-    await guild.leave();
-    return;
-  }
-
-  // Verificação secundária: Whitelist de servidores (backup)
   if (!ALLOWED_GUILDS.includes(guild.id)) {
+    const owner = await guild.fetchOwner().catch(() => null);
     if (owner) owner.send({ embeds: [new EmbedBuilder().setColor(COR)
-      .setTitle('⚠️ Servidor Não Autorizado')
-      .setDescription('Este servidor não está na lista de autorizados, mas como você é o desenvolvedor, o bot permanecerá.\n\nPara adicionar mais servidores, atualize a lista `ALLOWED_GUILDS`.')
+      .setTitle('❌ Acesso Negado')
+      .setDescription('Este bot é **privado** e não está autorizado para este servidor.')
       .setFooter({ text: 'TASD Bot' })] }).catch(() => {});
+    await guild.leave();
   }
 });
 
 // ─── Censura ──────────────────────────────────────────────────────────────────
 const usuariosCensurados = new Set();
-const censuradoAviso = new Set(); // evita spam de DM
+const censuradoAviso = new Set();
 client.usuariosCensurados = usuariosCensurados;
+client.censuradoAviso = censuradoAviso;
 
 // ─── Contador de mensagens ────────────────────────────────────────────────────
 const msgCount = new Map();
@@ -224,19 +184,51 @@ client.on('messageCreate', async (message) => {
       censuradoAviso.add(message.author.id);
       message.author.send({ embeds: [new EmbedBuilder()
         .setColor(0xFF0000)
-        .setTitle(`${getEmoji(message.guild, 'warning')} VOCÊ FOI CASTIGADO ${getEmoji(message.guild, 'warning')}`)
-        .setDescription('Suas mensagens estão sendo **removidas automaticamente**.\nEntre em contato com a staff para mais informações.')
+        .setTitle(`${E.warning} VOCÊ FOI CASTIGADO ${E.warning}`)
+        .setDescription('Suas mensagens estão sendo **removidas automaticamente**.\nEntre em contato com a staff.')
         .setFooter({ text: message.guild.name }).setTimestamp()]
       }).catch(() => {});
     }
     return;
   }
 
-  // Anti-spam
+  // Anti-spam melhorado
   if (checkSpam(message.author.id)) {
     message.delete().catch(() => {});
-    const aviso = await message.channel.send({ content: `${getEmoji(message.guild, 'aviso')} ${message.author}, você está enviando mensagens rápido demais. Aguarde um momento.` }).catch(() => {});
-    if (aviso) setTimeout(() => aviso.delete().catch(() => {}), 5000);
+    const s = spamMap.get(message.author.id);
+
+    if (!s.warned) {
+      s.warned = true;
+      spamMap.set(message.author.id, s);
+
+      // Censura temporária de 2 minutos
+      const fimCastigo = Date.now() + 120000;
+      spamTimeout.set(message.author.id, fimCastigo);
+      usuariosCensurados.add(message.author.id);
+      censuradoAviso.delete(message.author.id);
+
+      const aviso = await message.channel.send({
+        content: `${E.aviso} ${message.author}, você foi silenciado por **2 minutos** por spam.`
+      }).catch(() => {});
+      if (aviso) setTimeout(() => aviso.delete().catch(() => {}), 8000);
+
+      // Remove censura após 2 minutos e avisa staff
+      setTimeout(async () => {
+        usuariosCensurados.delete(message.author.id);
+        censuradoAviso.delete(message.author.id);
+        spamTimeout.delete(message.author.id);
+
+        const canalStaff = message.guild.channels.cache.get(CANAL_STAFF_LOG);
+        if (canalStaff) {
+          canalStaff.send({ embeds: [new EmbedBuilder()
+            .setColor(0xFFA000)
+            .setTitle(`${E.aviso} Silêncio por Spam Encerrado`)
+            .setDescription(`${message.author} (${message.author.tag}) foi silenciado por spam e o castigo expirou.\n\nCanal: ${message.channel}`)
+            .setTimestamp().setFooter({ text: `${message.guild.name} • Anti-Spam` })]
+          }).catch(() => {});
+        }
+      }, 120000);
+    }
     return;
   }
 
@@ -250,12 +242,13 @@ client.on('messageCreate', async (message) => {
   if (now - cd > 60000) {
     xpCooldown.set(userId, now);
     try {
+      await ensureUser(userId);
       const user = getUser(userId);
       const ganho = Math.floor(Math.random() * 10) + 5;
-      const novoXP = user.xp + ganho;
-      const xpNeeded = (user.nivel + 1) * 100;
+      const novoXP = (user.xp || 0) + ganho;
+      const xpNeeded = ((user.nivel || 0) + 1) * 100;
       if (novoXP >= xpNeeded) {
-        const novoNivel = user.nivel + 1;
+        const novoNivel = (user.nivel || 0) + 1;
         saveUser(userId, { xp: novoXP - xpNeeded, nivel: novoNivel });
         message.channel.send({ embeds: [new EmbedBuilder().setColor(COR)
           .setTitle('⬆️ Level Up!')
@@ -268,7 +261,6 @@ client.on('messageCreate', async (message) => {
     } catch {}
   }
 
-  // Processar comandos
   if (!message.content.startsWith(PREFIX)) return;
   const args = message.content.slice(PREFIX.length).trim().split(/ +/);
   const rawCommand = args.shift().toLowerCase();
@@ -278,8 +270,8 @@ client.on('messageCreate', async (message) => {
     const alvo = message.mentions.users.first() || message.author;
     const count = msgCount.get(alvo.id) || 0;
     return message.reply({ embeds: [new EmbedBuilder().setColor(COR)
-      .setTitle(`${getEmoji(message.guild, 'info')} Contador de Mensagens`)
-      .setDescription(`${getEmoji(message.guild, 'membro')} **${alvo.username}** enviou **${count.toLocaleString('pt-BR')} mensagens** nesta sessão.`)
+      .setTitle(`${E.info} Contador de Mensagens`)
+      .setDescription(`${E.membro} **${alvo.username}** enviou **${count.toLocaleString('pt-BR')} mensagens** nesta sessão.`)
       .setThumbnail(alvo.displayAvatarURL()).setTimestamp()
       .setFooter({ text: 'Contagem desde o último restart do bot' })] });
   }
@@ -292,7 +284,6 @@ client.on('messageCreate', async (message) => {
   if (cmdUtil) return cmdUtil(client, message, args);
 });
 
-// ─── Cargos por nível ─────────────────────────────────────────────────────────
 async function aplicarCargoNivel(member, nivel, guild) {
   const cargosNivel = { 5:'Nível 5', 10:'Nível 10', 20:'Nível 20', 30:'Nível 30', 50:'Nível 50' };
   const nomeCargo = cargosNivel[nivel];
@@ -301,7 +292,6 @@ async function aplicarCargoNivel(member, nivel, guild) {
   if (cargo) await member.roles.add(cargo).catch(() => {});
 }
 
-// ─── Slash Commands ───────────────────────────────────────────────────────────
 const slashCommands = [
   new SlashCommandBuilder().setName('falar').setDescription('Faz o bot enviar uma mensagem no canal').addStringOption(o => o.setName('mensagem').setDescription('Mensagem a enviar').setRequired(true)),
   new SlashCommandBuilder().setName('ticket').setDescription('Abre o painel de suporte'),
@@ -318,6 +308,10 @@ const slashCommands = [
 client.on('ready', async () => {
   console.log(`[TASD Bot] Online como ${client.user.tag}`);
   client.user.setPresence({ activities: [{ name: 'TASD | r.ajuda' }], status: 'online' });
+
+  // Carrega cache do Firebase
+  if (initCache) await initCache().catch(e => console.warn('[Firebase] Erro no cache:', e.message));
+
   const rest = new REST({ version: '10' }).setToken(TOKEN);
   for (const guildId of ALLOWED_GUILDS) {
     const g = client.guilds.cache.get(guildId);
@@ -326,13 +320,13 @@ client.on('ready', async () => {
       .catch(e => console.warn(`[TASD Bot] Erro slash em ${guildId}: ${e.message}`));
   }
   console.log('[TASD Bot] Slash commands registrados.');
+
   setInterval(() => {
     const agora = new Date();
     if (agora.getDay() === 0 && agora.getHours() === 20 && agora.getMinutes() === 0) economia.sorteioLoteria(client);
   }, 60000);
 });
 
-// ─── Interactions ─────────────────────────────────────────────────────────────
 client.on('interactionCreate', async (interaction) => {
   if (!ALLOWED_GUILDS.includes(interaction.guildId)) return;
   if (interaction.isStringSelectMenu() && interaction.customId === 'ticket_tipo') return utilidades.handleTicketSelect(client, interaction);
@@ -354,7 +348,9 @@ client.on('interactionCreate', async (interaction) => {
   if (commandName === 'ajuda') return utilidades.slashAjuda(client, interaction);
 });
 
-// ─── Keepalive ────────────────────────────────────────────────────────────────
+// Tratamento global de erros para não crashar
+process.on('unhandledRejection', (err) => console.error('[TASD Bot] Erro não tratado:', err?.message || err));
+
 const app = express();
 app.get('/', (_, res) => res.send('TASD Bot online. 👑'));
 app.listen(3000, () => console.log('[TASD Bot] HTTP ativo na porta 3000'));

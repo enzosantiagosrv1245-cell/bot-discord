@@ -22,3 +22,5 @@ client.once('ready', async () => {
   process.exit(0);
 });
 client.login(process.env.TOKEN);
+
+//fix-cargos.js

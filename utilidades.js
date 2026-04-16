@@ -537,3 +537,5 @@ module.exports = {
   slashFalar, slashTicket, slashPerfil, slashRankingXP,
   slashUserinfo, slashServerinfo, slashAjuda,
 };
+
+//utilidades.js

@@ -208,3 +208,5 @@ async function handleMembroEntrou(member) {
 }
 
 module.exports = { setupVerificacao, handleVerificacaoBtn, handleDMResposta, handleMembroEntrou, CANAL_VERIFICACAO, CARGO_VERIFICADO, CARGO_NAO_VERIFICADO };
+
+// verificacao.js

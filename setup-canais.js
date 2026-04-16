@@ -95,3 +95,4 @@ client.once('ready', async () => {
 });
 
 client.login(TOKEN);
+//setup-canais.js
