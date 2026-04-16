@@ -16,13 +16,13 @@ const COR = 0xE53935;
 const E = {
   verificado:  '<:verificado:1482444634125766806>',
   nverificado: '<:nverificado:1482444770793226422>',
-  seta:        '<a:seta:1482442582968631366>',
-  ferramentas: '<:ferramentas:1492672307053989928>',
-  escudo:      '<:escudo:1492672514483159131>',
+  seta:        '<a:seta:1494389872754954511>',
+  staff:       '<:staff:1494389821957869679>',
+  staff2:      '<:staff2:1494389791981310162>',
   info:        '<:info:1492161517846659342>',
-  usuario:     '<:usuario:1492161868704518426>',
-  regras:      '<:regras:1492161953299304561>',
-  carrinho:    '<:carrinho:1492162567655657654>',
+  membro:      '<:membro:1494389688855695370>',
+  regras:      '<:regras:1494389661009842217>',
+  shop:        '<:shop:1494389631397920798>',
   aviso:       '<:aviso:1492161793005584495>',
   warning:     '<a:WARNING:1366624152718676021>',
 };
@@ -221,12 +221,12 @@ commands['userinfo'] = async (client, msg, args) => {
     .setThumbnail(alvo.user.displayAvatarURL({ size: 256 }))
     .addFields(
       { name: `${E.info} ID`, value: `\`${alvo.id}\``, inline: true },
-      { name: `${E.usuario} Apelido`, value: alvo.nickname || 'Nenhum', inline: true },
+      { name: `${E.membro} Apelido`, value: alvo.nickname || 'Nenhum', inline: true },
       { name: '📅 Conta criada', value: `<t:${Math.floor(alvo.user.createdTimestamp / 1000)}:R>`, inline: true },
       { name: '📥 Entrou no servidor', value: `<t:${Math.floor(alvo.joinedTimestamp / 1000)}:R>`, inline: true },
       { name: '⭐ Nível', value: `${user.nivel} (${user.xp} XP)`, inline: true },
-      { name: `${E.carrinho} Moedas`, value: (user.moedas + user.banco).toLocaleString('pt-BR'), inline: true },
-      { name: `${E.escudo} Cargos (${alvo.roles.cache.size - 1})`, value: cargos, inline: false },
+      { name: `${E.shop} Moedas`, value: (user.moedas + user.banco).toLocaleString('pt-BR'), inline: true },
+      { name: `${E.staff} Cargos (${alvo.roles.cache.size - 1})`, value: cargos, inline: false },
     )
     .setTimestamp().setFooter({ text: msg.guild.name });
   msg.reply({ embeds: [e] });
@@ -251,7 +251,7 @@ commands['serverinfo'] = async (client, msg, args) => {
       { name: '📢 Canais', value: `${g.channels.cache.size}`, inline: true },
       { name: '🏅 Cargos', value: `${g.roles.cache.size}`, inline: true },
       { name: '😄 Emojis', value: `${g.emojis.cache.size}`, inline: true },
-      { name: `${E.escudo} Verificação`, value: g.verificationLevel.toString(), inline: true },
+      { name: `${E.staff} Verificação`, value: g.verificationLevel.toString(), inline: true },
       { name: '🚀 Boosts', value: `${g.premiumSubscriptionCount || 0} (Nível ${g.premiumTier})`, inline: true },
     )
     .setTimestamp().setFooter({ text: g.name });
@@ -274,7 +274,7 @@ commands['perfil'] = async (client, msg, args) => {
       { name: `${E.info} Nível`, value: `**${user.nivel}**`, inline: true },
       { name: '✨ XP', value: `${user.xp} / ${xpNeeded}\n\`${barra}\``, inline: true },
       { name: '💍 Casado com', value: user.casadoCom ? `<@${user.casadoCom}>` : 'Solteiro(a)', inline: true },
-      { name: `${E.carrinho} Carteira`, value: (user.moedas || 0).toLocaleString('pt-BR'), inline: true },
+      { name: `${E.shop} Carteira`, value: (user.moedas || 0).toLocaleString('pt-BR'), inline: true },
       { name: '🏦 Banco', value: (user.banco || 0).toLocaleString('pt-BR'), inline: true },
       { name: '💰 Total', value: ((user.moedas || 0) + (user.banco || 0)).toLocaleString('pt-BR'), inline: true },
     )

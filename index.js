@@ -15,13 +15,13 @@ const COR = 0xE53935;
 const E = {
   verificado:    '<:verificado:1482444634125766806>',
   nverificado:   '<:nverificado:1482444770793226422>',
-  seta:          '<a:seta:1482442582968631366>',
-  ferramentas:   '<:ferramentas:1492672307053989928>',
-  escudo:        '<:escudo:1492672514483159131>',
+  seta:          '<a:seta:1494389872754954511>',
+  staff:         '<:staff:1494389821957869679>',
+  staff2:        '<:staff2:1494389791981310162>',
   info:          '<:info:1492161517846659342>',
-  usuario:       '<:usuario:1492161868704518426>',
-  regras:        '<:regras:1492161953299304561>',
-  carrinho:      '<:carrinho:1492162567655657654>',
+  membro:        '<:membro:1494389688855695370>',
+  regras:        '<:regras:1494389661009842217>',
+  shop:          '<:shop:1494389631397920798>',
   aviso:         '<:aviso:1492161793005584495>',
   warning:       '<a:WARNING:1366624152718676021>',
 };
@@ -137,8 +137,8 @@ client.on('guildMemberAdd', async (member) => {
       `Olá, ${member}! Ficamos felizes em ter você aqui.\n\n` +
       `${E.regras} **Leia as regras** do servidor antes de interagir.\n` +
       `${E.info} **Apresente-se** nos canais de introdução.\n` +
-      `${E.carrinho} Use \`r.ajuda\` para ver todos os comandos.\n` +
-      `${E.escudo} Respeite todos os membros.\n\n` +
+      `${E.shop} Use \`r.ajuda\` para ver todos os comandos.\n` +
+      `${E.staff} Respeite todos os membros.\n\n` +
       `*Esperamos que você aproveite a comunidade!* 🎉`
     )
     .setThumbnail(member.user.displayAvatarURL({ size: 256 }))
@@ -251,7 +251,7 @@ client.on('messageCreate', async (message) => {
     const count = msgCount.get(alvo.id) || 0;
     return message.reply({ embeds: [new EmbedBuilder().setColor(COR)
       .setTitle(`${E.info} Contador de Mensagens`)
-      .setDescription(`${E.usuario} **${alvo.username}** enviou **${count.toLocaleString('pt-BR')} mensagens** nesta sessão.`)
+      .setDescription(`${E.membro} **${alvo.username}** enviou **${count.toLocaleString('pt-BR')} mensagens** nesta sessão.`)
       .setThumbnail(alvo.displayAvatarURL()).setTimestamp()
       .setFooter({ text: 'Contagem desde o último restart do bot' })] });
   }
