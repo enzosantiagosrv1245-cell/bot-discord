@@ -286,7 +286,25 @@ const slashCommands = [
 
 client.on('clientReady', async () => {
   console.log(`[TASD Bot] Online como ${client.user.tag}`);
-  client.user.setPresence({ activities: [{ name: 'TASD | r.ajuda' }], status: 'online' });
+
+  const frasesPresenca = [
+    'Na floresta vermelha',
+    'Caçada iniciada',
+    'Silêncio mortal',
+    'No território do lobo',
+    'Sangue na trilha',
+    'Instinto ativado',
+    'Olhos brilhando na noite',
+    'Entre árvores sombrias'
+  ];
+
+  const atualizarPresenca = () => {
+    const random = frasesPresenca[Math.floor(Math.random() * frasesPresenca.length)];
+    client.user.setPresence({ activities: [{ name: random }], status: 'online' });
+  };
+
+  atualizarPresenca();
+  setInterval(atualizarPresenca, 15000);
 
   // Carrega cache do Firebase
   if (initCache) await initCache().catch(e => console.warn('[Firebase] Erro no cache:', e.message));
