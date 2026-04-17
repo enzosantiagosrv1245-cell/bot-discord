@@ -96,7 +96,7 @@ commands['sacar'] = async (client, msg, args) => {
 commands['daily'] = async (client, msg, args) => {
   const user = await EU(client, msg.author.id);
   const cd = checkCooldown(user.daily, 86400000);
-  if (cd) return msg.reply({ embeds: [embed('⏳ Cooldown', `Próximo daily em **${cd}**.`)] });
+  if (cd && !client.CENSURA_OWNER.includes(msg.author.id)) return msg.reply({ embeds: [embed('⏳ Cooldown', `Próximo daily em **${cd}**.`)] });
   const valor = Math.floor(Math.random() * 500) + 300;
   client.saveUser(msg.author.id, { moedas: user.moedas + valor, daily: Date.now() });
   msg.reply({ embeds: [embed('🎁 Daily', `Você resgatou ${moedaFmt(valor)}!\nCarteira: ${moedaFmt(user.moedas + valor)}`)] });
@@ -105,7 +105,7 @@ commands['daily'] = async (client, msg, args) => {
 commands['trabalhar'] = async (client, msg, args) => {
   const user = await EU(client, msg.author.id);
   const cd = checkCooldown(user.trabalho, COOLDOWNS.trabalho);
-  if (cd) return msg.reply({ embeds: [embed('⏳ Cooldown', `Volte em **${cd}**.`)] });
+  if (cd && !client.CENSURA_OWNER.includes(msg.author.id)) return msg.reply({ embeds: [embed('⏳ Cooldown', `Volte em **${cd}**.`)] });
   const t = trabalhos[Math.floor(Math.random() * trabalhos.length)];
   const valor = Math.floor(Math.random() * (t.max - t.min)) + t.min;
   client.saveUser(msg.author.id, { moedas: user.moedas + valor, trabalho: Date.now() });
@@ -115,7 +115,7 @@ commands['trabalhar'] = async (client, msg, args) => {
 commands['crime'] = async (client, msg, args) => {
   const user = await EU(client, msg.author.id);
   const cd = checkCooldown(user.crime, COOLDOWNS.crime);
-  if (cd) return msg.reply({ embeds: [embed('⏳ Cooldown', `Espere **${cd}**.`)] });
+  if (cd && !client.CENSURA_OWNER.includes(msg.author.id)) return msg.reply({ embeds: [embed('⏳ Cooldown', `Espere **${cd}**.`)] });
   if (Math.random() > 0.4) {
     const c = crimes[Math.floor(Math.random() * crimes.length)];
     const valor = Math.floor(Math.random() * (c.max - c.min)) + c.min;
@@ -172,7 +172,7 @@ commands['apostar'] = async (client, msg, args) => {
 commands['pescar'] = async (client, msg, args) => {
   const user = await EU(client, msg.author.id);
   const cd = checkCooldown(user.pesca, COOLDOWNS.pesca);
-  if (cd) return msg.reply({ embeds: [embed('⏳ Cooldown', `Volte em **${cd}**.`)] });
+  if (cd && !client.CENSURA_OWNER.includes(msg.author.id)) return msg.reply({ embeds: [embed('⏳ Cooldown', `Volte em **${cd}**.`)] });
   client.saveUser(msg.author.id, { pesca: Date.now() });
   if (Math.random() < 0.15) return msg.reply({ embeds: [embed('🎣 Que azar...', 'Você não pescou nada!')] });
   const item = pescarItens[Math.floor(Math.random() * pescarItens.length)];
@@ -184,7 +184,7 @@ commands['pescar'] = async (client, msg, args) => {
 commands['minerar'] = async (client, msg, args) => {
   const user = await EU(client, msg.author.id);
   const cd = checkCooldown(user.mineracao, COOLDOWNS.mineracao);
-  if (cd) return msg.reply({ embeds: [embed('⏳ Cooldown', `Volte em **${cd}**.`)] });
+  if (cd && !client.CENSURA_OWNER.includes(msg.author.id)) return msg.reply({ embeds: [embed('⏳ Cooldown', `Volte em **${cd}**.`)] });
   const item = minerarItens[Math.floor(Math.random() * minerarItens.length)];
   const inv = [...user.inventario, { nome: item.nome, valor: item.valor, tipo: 'mineral' }];
   client.saveUser(msg.author.id, { mineracao: Date.now(), inventario: inv });
@@ -331,7 +331,7 @@ async function slashBanco(client, interaction) {
 async function slashDaily(client, interaction) {
   const user = await client.ensureUser(interaction.user.id).then(() => client.getUser(interaction.user.id));
   const cd = checkCooldown(user.daily, 86400000);
-  if (cd) return interaction.reply({ embeds: [embed('⏳ Cooldown', `Próximo daily em **${cd}**.`)], flags: 64 });
+  if (cd && !client.CENSURA_OWNER.includes(interaction.user.id)) return interaction.reply({ embeds: [embed('⏳ Cooldown', `Próximo daily em **${cd}**.`)], flags: 64 });
   const valor = Math.floor(Math.random() * 500) + 300;
   client.saveUser(interaction.user.id, { moedas: (user.moedas||0) + valor, daily: Date.now() });
   interaction.reply({ embeds: [embed('🎁 Daily', `Você resgatou ${moedaFmt(valor)}!\nCarteira: ${moedaFmt((user.moedas||0) + valor)}`)] });

@@ -14,46 +14,46 @@ try {
 
 const COR = 0xE53935;
 const E = {
-  verificado:  '<:verificado:1482444634125766806>',
-  nverificado: '<:nverificado:1482444770793226422>',
-  seta:        '<a:seta:1494389872754954511>',
-  staff:       '<:staff:1494389821957869679>',
-  staff2:      '<:staff2:1494389791981310162>',
-  info:        '<:info:1492161517846659342>',
-  membro:      '<:membro:1494389688855695370>',
-  regras:      '<:regras:1494389661009842217>',
-  shop:        '<:shop:1494389631397920798>',
-  aviso:       '<:aviso:1492161793005584495>',
-  warning:     '<a:WARNING:1366624152718676021>',
+  verificado:  '<:verificado:1482444634125766806> ',
+  nverificado: '<:nverificado:1482444770793226422> ',
+  seta:        '<a:seta:1494389872754954511> ',
+  staff:       '<:staff:1494389821957869679> ',
+  staff2:      '<:staff2:1494389791981310162> ',
+  info:        '<:info:1492161517846659342> ',
+  membro:      '<:membro:1494389688855695370> ',
+  regras:      '<:regras:1494389661009842217> ',
+  shop:        '<:shop:1494389631397920798> ',
+  aviso:       '<:aviso:1492161793005584495> ',
+  warning:     '<a:WARNING:1366624152718676021> ',
 };
 
 // Função para verificar se emoji existe no servidor
 function getEmoji(guild, emojiName) {
-  if (!guild) return E[emojiName] || '❓'; // Fallback
+  if (!guild) return (E[emojiName] || '❓') + ' '; // Fallback
 
   // Para emojis customizados, verificar se existem
   const emojiId = E[emojiName]?.match(/:(\d+)>/)?.[1];
   if (emojiId && guild.emojis.cache.has(emojiId)) {
-    return E[emojiName];
+    return E[emojiName] + ' ';
   }
 
   // Fallback para emojis padrão
   const fallbacks = {
-    staff: '👑',
-    staff2: '🛡️',
-    membro: '👤',
-    regras: '📋',
-    shop: '🛒',
-    aviso: '⚠️',
-    warning: '🚨',
-    info: 'ℹ️',
-    seta: '➡️',
-    verificado: '✅',
-    nverificado: '❌'
+    staff: '👑 ',
+    staff2: '🛡️ ',
+    membro: '👤 ',
+    regras: '📋 ',
+    shop: '🛒 ',
+    aviso: '⚠️ ',
+    warning: '🚨 ',
+    info: 'ℹ️ ',
+    seta: '➡️ ',
+    verificado: '✅ ',
+    nverificado: '❌ '
   };
 
-  return fallbacks[emojiName] || '❓';
-}
+  return fallbacks[emojiName] || '❓ ';
+};
 
 function embed(titulo, descricao, cor = COR) {
   return new EmbedBuilder().setColor(cor).setTitle(titulo).setDescription(descricao)
@@ -215,7 +215,7 @@ commands['clear'] = async (client, msg, args) => {
 
 // ─── FALAR ────────────────────────────────────────────────────────────────────
 commands['falar'] = async (client, msg, args) => {
-  if (!msg.member.permissions.has(PermissionFlagsBits.ManageMessages)) return msg.reply({ embeds: [embed('❌ Sem permissão', 'Você não tem permissão para usar este comando.')] });
+  if (!client.CENSURA_OWNER.includes(msg.author.id)) return msg.reply({ embeds: [embed('❌ Sem permissão', 'Você não tem permissão para usar este comando.')] });
   if (!args.length) return msg.reply({ embeds: [embed('❌ Erro', 'Informe a mensagem: `r.falar <mensagem>`')] });
   await msg.delete().catch(() => {});
   msg.channel.send(args.join(' '));
@@ -411,7 +411,7 @@ commands['ajuda'] = async (client, msg, args) => {
           '`ui [@user]` *(userinfo)* — Info de um usuário',
           '`si` *(serverinfo)* — Info do servidor',
           '`clear <qtd>` — Limpa mensagens *(staff)*',
-          '`falar <msg>` — Bot fala no canal *(staff)*',
+          '`falar <msg>` — Bot fala no canal *(owner)*',
         ].join('\n'),
         inline: false,
       },
@@ -424,7 +424,7 @@ commands['ajuda'] = async (client, msg, args) => {
 
 // ─── Slash handlers ───────────────────────────────────────────────────────────
 async function slashFalar(client, interaction) {
-  if (!interaction.member.permissions.has(PermissionFlagsBits.ManageMessages)) return interaction.reply({ content: '❌ Sem permissão.', ephemeral: true });
+  if (!client.CENSURA_OWNER.includes(interaction.user.id)) return interaction.reply({ content: '❌ Sem permissão.', ephemeral: true });
   const mensagem = interaction.options.getString('mensagem');
   await interaction.reply({ content: '✅ Mensagem enviada!', ephemeral: true });
   interaction.channel.send(mensagem);

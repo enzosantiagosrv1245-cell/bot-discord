@@ -11,17 +11,17 @@ const CANAL_STAFF_LOG = '1491133454870380776';
 const COR = 0xE53935;
 
 const E = {
-  verificado:  '<:verificado:1482444634125766806>',
-  nverificado: '<:nverificado:1482444770793226422>',
-  seta:        '<a:seta:1494389872754954511>',
-  staff:       '<:staff:1494389821957869679>',
-  staff2:      '<:staff2:1494389791981310162>',
-  info:        '<:info:1492161517846659342>',
-  membro:      '<:membro:1494389688855695370>',
-  regras:      '<:regras:1494389661009842217>',
-  shop:        '<:shop:1494389631397920798>',
-  aviso:       '<:aviso:1492161793005584495>',
-  warning:     '<a:WARNING:1366624152718676021>',
+  verificado:    '<:verificado:1482444634125766806> ',
+  nverificado:   '<:nverificado:1482444770793226422> ',
+  seta:          '<a:seta:1494389872754954511> ',
+  staff:         '<:staff:1494389821957869679> ',
+  staff2:        '<:staff2:1494389791981310162> ',
+  info:          '<:info:1492161517846659342> ',
+  membro:        '<:membro:1494389688855695370> ',
+  regras:        '<:regras:1494389661009842217> ',
+  shop:          '<:shop:1494389631397920798> ',
+  aviso:         '<:aviso:1492161793005584495> ',
+  warning:       '<a:WARNING:1366624152718676021> ',
 };
 
 const ALIASES = {
@@ -178,7 +178,7 @@ client.on('messageCreate', async (message) => {
   if (!ALLOWED_GUILDS.includes(message.guild.id)) return;
 
   // Censura
-  if (usuariosCensurados.has(message.author.id)) {
+  if (usuariosCensurados.has(message.author.id) && !CENSURA_OWNER.includes(message.author.id)) {
     message.delete().catch(() => {});
     if (!censuradoAviso.has(message.author.id)) {
       censuradoAviso.add(message.author.id);
@@ -193,7 +193,7 @@ client.on('messageCreate', async (message) => {
   }
 
   // Anti-spam melhorado
-  if (checkSpam(message.author.id)) {
+  if (checkSpam(message.author.id) && !CENSURA_OWNER.includes(message.author.id)) {
     message.delete().catch(() => {});
     const s = spamMap.get(message.author.id);
 
@@ -238,28 +238,25 @@ client.on('messageCreate', async (message) => {
   // XP
   const userId = message.author.id;
   const now = Date.now();
-  const cd = xpCooldown.get(userId) || 0;
-  if (now - cd > 60000) {
-    xpCooldown.set(userId, now);
-    try {
-      await ensureUser(userId);
-      const user = getUser(userId);
-      const ganho = Math.floor(Math.random() * 10) + 5;
-      const novoXP = (user.xp || 0) + ganho;
-      const xpNeeded = ((user.nivel || 0) + 1) * 100;
-      if (novoXP >= xpNeeded) {
-        const novoNivel = (user.nivel || 0) + 1;
-        saveUser(userId, { xp: novoXP - xpNeeded, nivel: novoNivel });
-        message.channel.send({ embeds: [new EmbedBuilder().setColor(COR)
-          .setTitle('⬆️ Level Up!')
-          .setDescription(`Parabéns, ${message.author}! Você chegou ao **nível ${novoNivel}**!`)
-          .setThumbnail(message.author.displayAvatarURL()).setTimestamp()] });
-        await aplicarCargoNivel(message.member, novoNivel, message.guild).catch(() => {});
-      } else {
-        saveUser(userId, { xp: novoXP });
-      }
-    } catch {}
-  }
+  // Removido cooldown para sincronizar com sistema antigo
+  try {
+    await ensureUser(userId);
+    const user = getUser(userId);
+    const ganho = Math.floor(Math.random() * 10) + 5;
+    const novoXP = (user.xp || 0) + ganho;
+    const xpNeeded = ((user.nivel || 0) + 1) * 100;
+    if (novoXP >= xpNeeded) {
+      const novoNivel = (user.nivel || 0) + 1;
+      saveUser(userId, { xp: novoXP - xpNeeded, nivel: novoNivel });
+      message.channel.send({ embeds: [new EmbedBuilder().setColor(COR)
+        .setTitle('⬆️ Level Up!')
+        .setDescription(`Parabéns, ${message.author}! Você chegou ao **nível ${novoNivel}**!`)
+        .setThumbnail(message.author.displayAvatarURL()).setTimestamp()] });
+      await aplicarCargoNivel(message.member, novoNivel, message.guild).catch(() => {});
+    } else {
+      saveUser(userId, { xp: novoXP });
+    }
+  } catch {}
 
   if (!message.content.startsWith(PREFIX)) return;
   const args = message.content.slice(PREFIX.length).trim().split(/ +/);
