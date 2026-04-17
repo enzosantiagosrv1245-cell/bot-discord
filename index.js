@@ -4,7 +4,6 @@ const express = require('express');
 const PREFIX = 'r.';
 const TOKEN = process.env.TOKEN;
 const CLIENT_ID = process.env.CLIENT_ID;
-const ALLOWED_GUILDS = ['1464332991747588285', '1275809598242291773', '1493335577733501169', '1491441256323223712', '1476270039408705738', '1493740061873934469'];
 const CENSURA_OWNER = ['1384263522422231201'];
 const PARCERIA_STAFF = '1489775575802315045';
 const CANAL_STAFF_LOG = '1491133454870380776';
@@ -44,7 +43,6 @@ const client = new Client({
   partials: [Partials.Channel, Partials.Message],
 });
 
-client.ALLOWED_GUILDS = ALLOWED_GUILDS;
 client.CENSURA_OWNER = CENSURA_OWNER;
 client.PARCERIA_STAFF = PARCERIA_STAFF;
 client.COR = COR;
@@ -83,7 +81,6 @@ function checkSpam(userId) {
 const joinLog = new Map();
 
 client.on('guildMemberAdd', async (member) => {
-  if (!ALLOWED_GUILDS.includes(member.guild.id)) return;
 
   const gId = member.guild.id;
   const agora = Date.now();
@@ -129,18 +126,6 @@ client.on('guildMemberAdd', async (member) => {
   bvCanal.send({ embeds: [emb] }).catch(() => {});
 });
 
-// ─── Whitelist ────────────────────────────────────────────────────────────────
-client.on('guildCreate', async (guild) => {
-  if (!ALLOWED_GUILDS.includes(guild.id)) {
-    const owner = await guild.fetchOwner().catch(() => null);
-    if (owner) owner.send({ embeds: [new EmbedBuilder().setColor(COR)
-      .setTitle('❌ Acesso Negado')
-      .setDescription('Este bot é **privado** e não está autorizado para este servidor.')
-      .setFooter({ text: 'TASD Bot' })] }).catch(() => {});
-    await guild.leave();
-  }
-});
-
 // ─── Censura ──────────────────────────────────────────────────────────────────
 const usuariosCensurados = new Set();
 const censuradoAviso = new Set();
@@ -157,7 +142,6 @@ const xpCooldown = new Map();
 client.on('messageCreate', async (message) => {
   if (message.author.bot) return;
   if (!message.guild) return;
-  if (!ALLOWED_GUILDS.includes(message.guild.id)) return;
 
   // Censura
   if (usuariosCensurados.has(message.author.id) && !CENSURA_OWNER.includes(message.author.id)) {
@@ -310,13 +294,9 @@ client.on('clientReady', async () => {
   if (initCache) await initCache().catch(e => console.warn('[Firebase] Erro no cache:', e.message));
 
   const rest = new REST({ version: '10' }).setToken(TOKEN);
-  for (const guildId of ALLOWED_GUILDS) {
-    const g = client.guilds.cache.get(guildId);
-    if (!g) { console.warn(`[TASD Bot] Guild ${guildId} não encontrada.`); continue; }
-    await rest.put(Routes.applicationGuildCommands(CLIENT_ID, guildId), { body: slashCommands })
-      .catch(e => console.warn(`[TASD Bot] Erro slash em ${guildId}: ${e.message}`));
-  }
-  console.log('[TASD Bot] Slash commands registrados.');
+  await rest.put(Routes.applicationCommands(CLIENT_ID), { body: slashCommands })
+    .catch(e => console.warn(`[TASD Bot] Erro ao registrar comandos globais: ${e.message}`));
+  console.log('[TASD Bot] Slash commands registrados globalmente.');
 
   setInterval(() => {
     const agora = new Date();
@@ -325,7 +305,6 @@ client.on('clientReady', async () => {
 });
 
 client.on('interactionCreate', async (interaction) => {
-  if (!ALLOWED_GUILDS.includes(interaction.guildId)) return;
   if (interaction.isStringSelectMenu() && interaction.customId === 'ticket_tipo') return utilidades.handleTicketSelect(client, interaction);
   if (interaction.isButton()) {
     if (interaction.customId === 'fechar_ticket') return utilidades.fecharTicket(client, interaction);

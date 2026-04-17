@@ -302,12 +302,11 @@ commands['ranking'] = async (client, msg, args) => {
 };
 
 async function sorteioLoteria(client) {
-  for (const guildId of client.ALLOWED_GUILDS) {
+  client.guilds.cache.forEach(async (guild) => {
+    const guildId = guild.id;
     const loteria = client.getLoteria(guildId);
-    if (!loteria.participantes?.length) continue;
+    if (!loteria.participantes?.length) return;
     const vencedorId = loteria.participantes[Math.floor(Math.random() * loteria.participantes.length)];
-    const guild = client.guilds.cache.get(guildId);
-    if (!guild) continue;
     const vencedor = client.getUser(vencedorId);
     client.saveUser(vencedorId, { moedas: (vencedor.moedas || 0) + loteria.pote });
     client.saveLoteria(guildId, { participantes: [], pote: 0, ultimo: Date.now() });
@@ -316,7 +315,7 @@ async function sorteioLoteria(client) {
       canal.send({ embeds: [new EmbedBuilder().setColor(0xE53935).setTitle('🎉 Sorteio da Loteria!')
         .setDescription(`O vencedor é <@${vencedorId}>!\n\nPrêmio: ${moedaFmt(loteria.pote)} 🪙`).setTimestamp()] });
     }
-  }
+  });
 }
 
 async function slashBanco(client, interaction) {
