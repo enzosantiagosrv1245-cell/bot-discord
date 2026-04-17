@@ -284,7 +284,7 @@ const slashCommands = [
   new SlashCommandBuilder().setName('ajuda').setDescription('Lista de comandos'),
 ].map(cmd => cmd.toJSON());
 
-client.on('ready', async () => {
+client.on('clientReady', async () => {
   console.log(`[TASD Bot] Online como ${client.user.tag}`);
   client.user.setPresence({ activities: [{ name: 'TASD | r.ajuda' }], status: 'online' });
 
