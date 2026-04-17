@@ -50,35 +50,17 @@ client.PARCERIA_STAFF = PARCERIA_STAFF;
 client.COR = COR;
 client.E = E;
 
-// ─── DB Firebase ──────────────────────────────────────────────────────────────
-let getUser, saveUser, ensureUser, getLoteria, saveLoteria, getRankingMoedas, getRankingXP, initCache;
-try {
-  const db = require('./db-firebase');
-  getUser = db.getUser; saveUser = db.saveUser; ensureUser = db.ensureUser;
-  getLoteria = db.getLoteria; saveLoteria = db.saveLoteria;
-  getRankingMoedas = db.getRankingMoedas; getRankingXP = db.getRankingXP;
-  initCache = db.initCache;
-  console.log('[TASD Bot] Firebase carregado.');
-} catch (e) {
-  console.warn('[TASD Bot] Firebase falhou, usando JSON:', e.message);
-  const fs = require('fs'), path = require('path');
-  const DB_PATH = path.join(__dirname, 'dados.json');
-  const _cache = {};
-  const loadDB = () => { if (!fs.existsSync(DB_PATH)) fs.writeFileSync(DB_PATH, JSON.stringify({ users: {}, loteria: {} })); return JSON.parse(fs.readFileSync(DB_PATH)); };
-  const saveDB = d => fs.writeFileSync(DB_PATH, JSON.stringify(d, null, 2));
-  const DEF = () => ({ moedas:0,banco:0,xp:0,nivel:0,daily:0,trabalho:0,crime:0,pesca:0,mineracao:0,inventario:[],plantando:null,plantaColher:null,casadoCom:null });
-  getUser = (id) => { if (!_cache[id]) { const db2 = loadDB(); _cache[id] = db2.users[id] || DEF(); } return _cache[id]; };
-  saveUser = (id, data) => { if (!_cache[id]) _cache[id] = DEF(); Object.assign(_cache[id], data); const db2 = loadDB(); db2.users[id] = _cache[id]; saveDB(db2); };
-  ensureUser = async (id) => getUser(id);
-  getLoteria = (gId) => { const db2 = loadDB(); return db2.loteria[gId] || { participantes:[], pote:0 }; };
-  saveLoteria = (gId, data) => { const db2 = loadDB(); db2.loteria[gId] = data; saveDB(db2); };
-  getRankingMoedas = (n=10) => Object.entries(_cache).map(([id,u])=>({id,moedas:u.moedas||0,banco:u.banco||0})).sort((a,b)=>(b.moedas+b.banco)-(a.moedas+a.banco)).slice(0,n);
-  getRankingXP = (n=10) => Object.entries(_cache).map(([id,u])=>({id,nivel:u.nivel||0,xp:u.xp||0})).sort((a,b)=>b.nivel-a.nivel||b.xp-a.xp).slice(0,n);
-  initCache = async () => { const db2 = loadDB(); Object.assign(_cache, db2.users); };
-}
-client.getUser = getUser; client.saveUser = saveUser; client.ensureUser = ensureUser;
-client.getLoteria = getLoteria; client.saveLoteria = saveLoteria;
-client.getRankingMoedas = getRankingMoedas; client.getRankingXP = getRankingXP;
+// ─── DB ──────────────────────────────────────────────────────────────────────
+const db = require('./db');
+client.getUser = db.getUser;
+client.saveUser = db.saveUser;
+client.ensureUser = db.ensureUser;
+client.getLoteria = db.getLoteria;
+client.saveLoteria = db.saveLoteria;
+client.getRankingMoedas = db.getRankingMoedas;
+client.getRankingXP = db.getRankingXP;
+client.loadDB = db.loadDB;
+const initCache = db.initCache;
 
 const economia = require('./economia');
 const diversao = require('./diversao');

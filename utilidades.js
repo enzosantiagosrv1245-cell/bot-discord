@@ -3,13 +3,18 @@ const {
   StringSelectMenuBuilder, ChannelType, PermissionFlagsBits
 } = require('discord.js');
 
-let getUser, saveUser, getRankingXP;
+let getUser, saveUser, getRankingXP, ensureUser;
 try {
   const db = require('./db');
-  getUser = db.getUser; saveUser = db.saveUser; getRankingXP = db.getRankingXP;
+  getUser = db.getUser;
+  saveUser = db.saveUser;
+  getRankingXP = db.getRankingXP;
+  ensureUser = db.ensureUser;
 } catch {
   getUser = () => ({ moedas:0, banco:0, xp:0, nivel:0, casadoCom:null, inventario:[] });
-  saveUser = () => {}; getRankingXP = () => [];
+  saveUser = () => {};
+  getRankingXP = () => [];
+  ensureUser = async () => {};
 }
 
 const COR = 0xE53935;
@@ -289,6 +294,7 @@ commands['serverinfo'] = async (client, msg, args) => {
 // ─── PERFIL ───────────────────────────────────────────────────────────────────
 commands['perfil'] = async (client, msg, args) => {
   const alvo = msg.mentions.users.first() || msg.author;
+  if (ensureUser) await ensureUser(alvo.id);
   const user = getUser(alvo.id);
   const xpNeeded = (user.nivel + 1) * 100;
   const barraLen = 10;
@@ -313,6 +319,7 @@ commands['perfil'] = async (client, msg, args) => {
 // ─── XP ───────────────────────────────────────────────────────────────────────
 commands['xp'] = async (client, msg, args) => {
   const alvo = msg.mentions.users.first() || msg.author;
+  if (ensureUser) await ensureUser(alvo.id);
   const user = getUser(alvo.id);
   const xpNeeded = (user.nivel + 1) * 100;
   msg.reply({ embeds: [embed(`${getEmoji(msg.guild, 'info')} XP — ${alvo.username}`, `Nível: **${user.nivel}**\nXP: **${user.xp} / ${xpNeeded}**`)] });
@@ -446,6 +453,7 @@ async function slashTicket(client, interaction) {
 
 async function slashPerfil(client, interaction) {
   const alvo = interaction.options.getUser('usuario') || interaction.user;
+  if (ensureUser) await ensureUser(alvo.id);
   const user = getUser(alvo.id);
   const xpNeeded = (user.nivel + 1) * 100;
   const e = new EmbedBuilder()
@@ -465,7 +473,6 @@ async function slashPerfil(client, interaction) {
 }
 
 async function slashRankingXP(client, interaction) {
-  const db = client.loadDB();
   const membros = getRankingXP(10);
   const medals = ['🥇', '🥈', '🥉'];
   const lista = membros.map((m, i) => `${medals[i] || `**${i + 1}.**`} <@${m.id}> — Nível **${m.nivel}** (${m.xp} XP)`).join('\n') || 'Ninguém ainda.';
@@ -474,6 +481,7 @@ async function slashRankingXP(client, interaction) {
 
 async function slashUserinfo(client, interaction) {
   const alvo = interaction.options.getMember('usuario') || interaction.member;
+  if (ensureUser) await ensureUser(alvo.id);
   const user = getUser(alvo.id);
   const cargos = alvo.roles.cache.filter(r => r.id !== interaction.guild.id).sort((a, b) => b.position - a.position).map(r => r.toString()).slice(0, 5).join(', ') || 'Nenhum';
   const e = new EmbedBuilder()
