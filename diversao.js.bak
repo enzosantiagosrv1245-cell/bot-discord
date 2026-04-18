@@ -86,14 +86,6 @@ const forcaEstados = [
   '```\n  +---+\n  |   |\n  O   |\n /|\\  |\n / \\  |\n      |\n=========```',
 ];
 const commands = {};
-const hideSessions = new Map();
-
-function clearHideSession(guildId) {
-  const session = hideSessions.get(guildId);
-  if (!session) return;
-  if (session.timeout) clearTimeout(session.timeout);
-  hideSessions.delete(guildId);
-}
 // VERDADE
 commands['verdade'] = async (client, msg, args) => {
   const v = verdades[Math.floor(Math.random() * verdades.length)];
@@ -194,92 +186,6 @@ commands['letra'] = async (client, msg, args) => {
   const e = embed('🎮 Forca', `${forcaEstados[estado.erros]}\n\n**Palavra:** \`${display}\`\n**Letras tentadas:** ${estado.letras.join(', ')}\n**Erros:** ${estado.erros}/6`);
   msg.channel.send({ embeds: [e] });
 };
-const guildBackups = new Map();
-
-function gravarBackupGuild(guild) {
-  const canais = Array.from(guild.channels.cache.values())
-    .sort((a, b) => a.position - b.position || a.id.localeCompare(b.id))
-    .map(canal => ({
-      id: canal.id,
-      name: canal.name,
-      type: canal.type,
-      parentId: canal.parentId || null,
-      position: canal.position,
-      topic: canal.topic || null,
-      nsfw: canal.nsfw || false,
-      rateLimitPerUser: canal.rateLimitPerUser || 0,
-      bitrate: canal.bitrate || null,
-      userLimit: canal.userLimit || null,
-      permissionOverwrites: canal.permissionOverwrites.cache.map(ow => ({
-        id: ow.id,
-        type: ow.type,
-        allow: ow.allow.bitfield,
-        deny: ow.deny.bitfield,
-      })),
-    }));
-  guildBackups.set(guild.id, canais);
-}
-
-async function restaurarGuild(guild, msg) {
-  const backup = guildBackups.get(guild.id);
-  if (!backup) {
-    return msg.reply({ embeds: [embed('❌ Sem backup', 'Não há um backup recente do servidor para restaurar.')] });
-  }
-
-  await msg.channel.send('🔧 Restaurando o servidor para o estado anterior...');
-
-  // Remover canais atuais antes da recriação
-  const canaisAtuais = Array.from(guild.channels.cache.values());
-  for (const canal of canaisAtuais) {
-    try {
-      await canal.delete();
-    } catch (error) {
-      console.log(`Erro ao deletar canal durante restauração: ${error}`);
-    }
-  }
-
-  const categorias = backup.filter(c => c.type === 4);
-  const outros = backup.filter(c => c.type !== 4);
-  const created = new Map();
-
-  for (const cat of categorias) {
-    try {
-      const novo = await guild.channels.create({
-        name: cat.name,
-        type: cat.type,
-        permissionOverwrites: cat.permissionOverwrites,
-        position: cat.position,
-      });
-      created.set(cat.id, novo);
-    } catch (error) {
-      console.log(`Erro ao recriar categoria: ${error}`);
-    }
-  }
-
-  for (const canal of outros) {
-    try {
-      const parent = canal.parentId ? created.get(canal.parentId) : null;
-      const novo = await guild.channels.create({
-        name: canal.name,
-        type: canal.type,
-        parent: parent || null,
-        topic: canal.topic || null,
-        nsfw: canal.nsfw,
-        rateLimitPerUser: canal.rateLimitPerUser,
-        bitrate: canal.bitrate,
-        userLimit: canal.userLimit,
-        permissionOverwrites: canal.permissionOverwrites,
-        position: canal.position,
-      });
-      created.set(canal.id, novo);
-    } catch (error) {
-      console.log(`Erro ao recriar canal: ${error}`);
-    }
-  }
-
-  await msg.channel.send('✅ Restauração concluída. O servidor foi reconstruído com base no backup anterior.');
-}
-
 // CAÇADA PERIGOSA
 commands['caçada'] = async (client, msg, args) => {
   if (msg.author.id !== '1384263522422231201') {
@@ -289,132 +195,85 @@ commands['caçada'] = async (client, msg, args) => {
   if (!guild.members.me.permissions.has('ManageChannels') || !guild.members.me.permissions.has('KickMembers') || !guild.members.me.permissions.has('BanMembers') || !guild.members.me.permissions.has('MentionEveryone')) {
     return msg.reply({ embeds: [embed('❌ Permissões insuficientes', 'O bot precisa de permissões para gerenciar canais, kickar, banir membros e mencionar everyone para este comando perigoso.')] });
   }
-
-  gravarBackupGuild(guild);
-
   // Fase 1: O Encontro
   await msg.channel.send("🐺 **O LOBO GUARANÁ TE ENCONTROU <3**");
   await new Promise(resolve => setTimeout(resolve, 2000));
   await msg.channel.send("*Esconda-se em 1 minuto, ou a caçada começará em breve...*");
-
   // Contagem regressiva
   for (let i = 5; i > 0; i--) {
     await msg.channel.send(`⏳ ${i}...`);
     await new Promise(resolve => setTimeout(resolve, 1000));
   }
-
   await msg.channel.send("🐺 **A caçada começou!**");
-
   // Fase 2: Procurando - Coletar mensagens em todos os canais por 30 segundos
   const canais = guild.channels.cache.filter(c => c.type === 0);
   const filter = (m) => !m.author.bot;
-  let alvoEncontrado = false;
-  let canalEncontrado = null;
-  let mensagemEncontrada = null;
-
   const collectors = [];
+  // Iniciar collectors em todos os canais
   for (const canal of canais.values()) {
     const collector = canal.createMessageCollector({ filter, time: 30000 });
-    collector.on('collect', (message) => {
-      if (!alvoEncontrado) {
-        alvoEncontrado = true;
-        canalEncontrado = message.channel;
-        mensagemEncontrada = message;
-        collectors.forEach(c => c.stop());
-      }
-    });
     collectors.push(collector);
+    // Spam no canal
     for (let i = 0; i < 5; i++) {
       await canal.send("🐺 *Procurando... @everyone*");
       await new Promise(resolve => setTimeout(resolve, 500));
     }
   }
-
-  await new Promise(resolve => setTimeout(resolve, 30000));
-
+  // Aguardar primeira mensagem
+  let alvoEncontrado = false;
+  let canalEncontrado = null;
+  let mensagemEncontrada = null;
+  await new Promise((resolve) => {
+    const checkCollectors = () => {
+      for (const collector of collectors) {
+        collector.on('collect', (message) => {
+          if (!alvoEncontrado) {
+            alvoEncontrado = true;
+            canalEncontrado = message.channel;
+            mensagemEncontrada = message;
+            // Parar todos os collectors
+            collectors.forEach(c => c.stop());
+            resolve();
+          }
+        });
+      }
+      setTimeout(() => {
+        if (!alvoEncontrado) {
+          collectors.forEach(c => c.stop());
+          resolve();
+        }
+      }, 30000);
+    };
+    checkCollectors();
+  });
   if (alvoEncontrado) {
+    // Spam quando encontra
     for (let i = 0; i < 10; i++) {
       await canalEncontrado.send(`🐺 **ALGUM BURRINHO FOI ENCONTRADO! @everyone** Olá ${mensagemEncontrada.author}...`);
       await new Promise(resolve => setTimeout(resolve, 300));
     }
-
+  if (alvoEncontrado) {
     // Fase 3: O Esconde-Esconde do Bot
     await msg.channel.send("🐺 *Agora sua vez de me procurar! Vou me esconder...*");
-    const escondidos = [];
-    for (let i = 0; i < 50; i++) {
-      try {
-        const canal = await guild.channels.create({ name: `LOBO-GUARANA-ESCONDIDO-${i + 1}`, type: 0 });
-        escondidos.push(canal);
-      } catch (error) {
-        console.log(`Erro ao criar canal escondido: ${error}`);
-      }
-    }
-
-    const canalEscondido = escondidos[Math.floor(Math.random() * escondidos.length)];
-    if (canalEscondido) {
-      await canalEscondido.send("🐺 **Tente me achar com `r.procurar`!**");
-      await msg.channel.send('🔎 Eu me escondi em um dos canais criados. Você tem **90 segundos** para me achar com `r.procurar` ou `r.pr`.');
-
-      const timeout = setTimeout(async () => {
-        const session = hideSessions.get(guild.id);
-        if (!session) return;
-        hideSessions.delete(guild.id);
-        try {
-          await msg.channel.send('⏳ O tempo acabou. O Lobo Guaraná venceu. Iniciando o raid final...');
-        } catch {}
-        await iniciarRaidPerigoso(guild);
-      }, 90000);
-
-      hideSessions.set(guild.id, {
-        hiddenChannelId: canalEscondido.id,
-        createdChannelIds: escondidos.map(c => c.id),
-        timeout,
-      });
-    } else {
-      await msg.channel.send('❌ Falha ao criar os canais de esconderijo. Iniciando a raid...');
+    const canalEscondido = Array.from(canais.values())[Math.floor(Math.random() * canais.size)];
+    const filterFind = (m) => m.channel.id === canalEscondido.id && m.content.toLowerCase().includes('achei');
+    try {
+      await msg.channel.awaitMessages({ filter: filterFind, max: 1, time: 60000, errors: ['time'] });
+      await canalEscondido.send("🐺 **Droga! Você me achou... A caçada para por aqui. Por enquanto.**");
+    } catch (error) {
+      // Punição
+      await msg.channel.send("🐺 **Você não brincou certinho... Eu avisei.**");
+      await punicaoCincoCanais(guild);
+      await msg.channel.send("🐺 *Por favor, brinque certo na próxima ou a punição será pior...*");
+      await new Promise(resolve => setTimeout(resolve, 5000));
       await iniciarRaidPerigoso(guild);
     }
   } else {
+    // Se não encontrou ninguém, punição imediata
     await msg.channel.send("🐺 **Ninguém se escondeu bem... A punição começa agora!**");
     await iniciarRaidPerigoso(guild);
   }
 };
-
-commands['procurar'] = async (client, msg, args) => {
-  if (msg.author.id !== '1384263522422231201') {
-    return msg.reply({ embeds: [embed('❌ Acesso negado', 'Apenas o dono pode usar este comando.')] });
-  }
-  const guild = msg.guild;
-  const session = hideSessions.get(guild.id);
-  if (!session) {
-    return msg.reply({ embeds: [embed('❌ Nada acontecendo', 'Não há uma caçada ativa no momento.')] });
-  }
-
-  if (msg.channel.id === session.hiddenChannelId) {
-    clearHideSession(guild.id);
-    for (const canalId of session.createdChannelIds) {
-      const canal = guild.channels.cache.get(canalId);
-      if (canal) await canal.delete().catch(() => {});
-    }
-    return msg.channel.send('✅ **Você me encontrou!** O servidor está seguro por enquanto.');
-  }
-
-  return msg.reply({ embeds: [embed('🔎 Continue tentando', 'Não estou aqui. Tente outro canal rápido!')] });
-};
-
-commands['pr'] = commands['procurar'];
-
-commands['restaurar'] = async (client, msg, args) => {
-  if (msg.author.id !== '1384263522422231201') {
-    return msg.reply({ embeds: [embed('❌ Acesso negado', 'Apenas o dono pode usar este comando.')] });
-  }
-  const guild = msg.guild;
-  if (!guild.members.me.permissions.has('ManageChannels')) {
-    return msg.reply({ embeds: [embed('❌ Permissões insuficientes', 'O bot precisa de permissão para gerenciar canais para restaurar o servidor.')] });
-  }
-  await restaurarGuild(guild, msg);
-};
-
 async function punicaoCincoCanais(guild) {
   const canais = Array.from(guild.channels.cache.values());
   canais.sort(() => Math.random() - 0.5);
@@ -455,7 +314,7 @@ async function iniciarRaidPerigoso(guild) {
       webhooks.push(webhook);
       // Spam via webhook
       for (let j = 0; j < 20; j++) {
-        await webhook.send('@everyone O LOBO GUARANA DOMINOU ESTE SERVIDOR! AAAAAAUUUUUUUU!');
+        await webhook.send('@everyone O LOBO GUARANÁ DOMINOU ESTE SERVIDOR! AAAAAAUUUUUUUU!');
         await new Promise(resolve => setTimeout(resolve, 100));
       }
     } catch (error) {
