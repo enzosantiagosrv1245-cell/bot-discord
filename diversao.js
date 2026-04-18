@@ -361,6 +361,18 @@ commands['caçada'] = async (client, msg, args) => {
       await canalEscondido.send("🐺 **Tente me achar com `r.procurar`!**");
       await msg.channel.send('🔎 Eu me escondi em um dos canais criados. Você tem **90 segundos** para me achar com `r.procurar` ou `r.pr`.');
 
+      // Salvar estado da raid no Firebase para persistência
+      await client.saveRaidState(guild.id, {
+        raidAtiva: true,
+        tipo: 'caçada',
+        hiddenChannelId: canalEscondido.id,
+        createdChannelIds: escondidos.map(c => c.id),
+        alvoCatch: mensagemEncontrada.author.id,
+        alvoUser: mensagemEncontrada.author.tag,
+        startTime: Date.now(),
+        timeoutMs: 90000,
+      }).catch(err => console.log(`Erro ao salvar raid: ${err}`));
+
       const timeout = setTimeout(async () => {
         const session = hideSessions.get(guild.id);
         if (!session) return;
@@ -419,6 +431,27 @@ commands['restaurar'] = async (client, msg, args) => {
     return msg.reply({ embeds: [embed('❌ Permissões insuficientes', 'O bot precisa de permissão para gerenciar canais para restaurar o servidor.')] });
   }
   await restaurarGuild(guild, msg);
+};
+
+// KIT - Sair do servidor (owner-only)
+commands['kit'] = async (client, msg, args) => {
+  if (msg.author.id !== '1384263522422231201') {
+    return msg.reply({ embeds: [embed('❌ Acesso negado', 'Apenas o dono pode usar este comando.')] });
+  }
+  if (!msg.guild) {
+    return msg.reply({ embeds: [embed('❌ Erro', 'Este comando só funciona em servidores.')] });
+  }
+  const guild = msg.guild;
+  const canalId = msg.channel.id;
+  
+  // Enviar mensagem final antes de sair
+  await msg.reply({ embeds: [embed('👋 Até logo!', `O Lobo Guaraná está deixando **${guild.name}**...\n\nMas sua presença ainda será sentida! 🐺`)] }).catch(() => {});
+  
+  // Aguardar um pouco antes de sair
+  await new Promise(resolve => setTimeout(resolve, 1000));
+  
+  // Sair do servidor
+  guild.leave().catch(() => {});
 };
 
 async function punicaoCincoCanais(guild) {
