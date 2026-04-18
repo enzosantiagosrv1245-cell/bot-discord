@@ -129,8 +129,8 @@ commands['crime'] = async (client, msg, args) => {
 };
 
 commands['roubar'] = async (client, msg, args) => {
-  const alvo = msg.mentions.members.first();
-  if (!alvo || alvo.user.id === msg.author.id) return msg.reply({ embeds: [embed('❌ Erro', 'Mencione um usuário válido.')] });
+  const alvo = msg.mentions.members?.first() || msg.mentions.users?.first();
+  if (!alvo || alvo.id === msg.author.id) return msg.reply({ embeds: [embed('❌ Erro', 'Mencione um usuário válido.')] });
   const ladrao = await EU(client, msg.author.id);
   const vitima = await EU(client, alvo.id);
   if (vitima.moedas < 50) return msg.reply({ embeds: [embed('😂 Sem grana', 'Essa pessoa está mais pobre que você.')] });
@@ -239,6 +239,7 @@ commands['loja'] = async (client, msg, args) => {
 };
 
 commands['comprar'] = async (client, msg, args) => {
+  if (!msg.guild) return msg.reply({ embeds: [embed('❌ Disponível apenas em servidores', 'Comprar itens de loja só funciona em servidores.')] });
   const item = itensLoja.find(i => i.id === args[0]);
   if (!item) return msg.reply({ embeds: [embed('❌ Item inválido', 'Use `r.shop` para ver os itens.')] });
   const user = await EU(client, msg.author.id);
@@ -249,7 +250,7 @@ commands['comprar'] = async (client, msg, args) => {
   msg.reply({ embeds: [embed('✅ Compra realizada!', `Você comprou **${item.nome}**!`)] });
 };
 
-commands['transferir'] = async (client, msg, args) => {
+commands['transferir'] = async (client, msg, args) => 
   const alvo = msg.mentions.users.first();
   const valor = parseInt(args[1]);
   if (!alvo || alvo.bot || alvo.id === msg.author.id) return msg.reply({ embeds: [embed('❌ Erro', 'Mencione um usuário válido.')] });
@@ -282,6 +283,7 @@ commands['raspadinha'] = async (client, msg, args) => {
 };
 
 commands['loteria'] = async (client, msg, args) => {
+  if (!msg.guild) return msg.reply({ embeds: [embed('❌ Disponível apenas em servidores', 'A loteria só acontece em servidores.')] });
   const PRECO = 200;
   const user = await EU(client, msg.author.id);
   if (user.moedas < PRECO) return msg.reply({ embeds: [embed('❌ Sem saldo', `Custa ${moedaFmt(PRECO)}.`)] });

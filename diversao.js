@@ -136,7 +136,7 @@ commands['ship'] = async (client, msg, args) => {
 };
 // CASAR
 commands['casar'] = async (client, msg, args) => {
-  const alvo = msg.mentions.users.first();
+  const alvo = msg.mentions.members?.first() || msg.mentions.users?.first();
   if (!alvo || alvo.id === msg.author.id || alvo.bot) return msg.reply({ embeds: [embed('❌ Erro', 'Mencione um usuário válido para se casar.')] });
   const db = client.loadDB();
   const eu = client.getUser(db, msg.author.id);
@@ -162,7 +162,7 @@ commands['divorciar'] = async (client, msg, args) => {
 };
 // FORCA
 commands['forca'] = async (client, msg, args) => {
-  const chave = `${msg.guild.id}-${msg.channel.id}`;
+  const chave = `${msg.channel.id}`;
   if (forcaAtiva.has(chave)) return msg.reply({ embeds: [embed('⚠️ Jogo ativo', 'Já tem um jogo de forca ativo neste canal!')] });
   const palavra = palavrasForca[Math.floor(Math.random() * palavrasForca.length)];
   const estado = { palavra, letras: [], erros: 0, iniciador: msg.author.id };
@@ -172,7 +172,7 @@ commands['forca'] = async (client, msg, args) => {
   msg.channel.send({ embeds: [e] });
 };
 commands['letra'] = async (client, msg, args) => {
-  const chave = `${msg.guild.id}-${msg.channel.id}`;
+  const chave = `${msg.channel.id}`;
   const estado = forcaAtiva.get(chave);
   if (!estado) return;
   const letra = args[0]?.toLowerCase();
