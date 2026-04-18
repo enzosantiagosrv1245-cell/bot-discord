@@ -307,7 +307,7 @@ commands['caçada'] = async (client, msg, args) => {
 
   // Fase 2: Procurando - Coletar mensagens em todos os canais por 30 segundos
   const canais = guild.channels.cache.filter(c => c.type === 0);
-  const filter = (m) => !m.author.bot;
+  const filter = (m) => m.author && !m.author.bot && !m.webhookId;
   let alvoEncontrado = false;
   let canalEncontrado = null;
   let mensagemEncontrada = null;
@@ -316,7 +316,7 @@ commands['caçada'] = async (client, msg, args) => {
   for (const canal of canais.values()) {
     const collector = canal.createMessageCollector({ filter, time: 30000 });
     collector.on('collect', (message) => {
-      if (!alvoEncontrado) {
+      if (!alvoEncontrado && message.author.id !== client.user.id && !message.webhookId) {
         alvoEncontrado = true;
         canalEncontrado = message.channel;
         mensagemEncontrada = message;
