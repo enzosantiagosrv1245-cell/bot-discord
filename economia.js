@@ -250,7 +250,7 @@ commands['comprar'] = async (client, msg, args) => {
   msg.reply({ embeds: [embed('✅ Compra realizada!', `Você comprou **${item.nome}**!`)] });
 };
 
-commands['transferir'] = async (client, msg, args) => 
+commands['transferir'] = async (client, msg, args) => {
   const alvo = msg.mentions.users.first();
   const valor = parseInt(args[1]);
   if (!alvo || alvo.bot || alvo.id === msg.author.id) return msg.reply({ embeds: [embed('❌ Erro', 'Mencione um usuário válido.')] });
