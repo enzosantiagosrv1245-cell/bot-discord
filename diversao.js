@@ -113,6 +113,59 @@ function clearHideSession(guildId) {
   if (session.timeout) clearTimeout(session.timeout);
   hideSessions.delete(guildId);
 }
+
+function getRaidAnnouncementChannel(guild) {
+  return guild.systemChannel || Array.from(guild.channels.cache.values())
+    .find(ch => ch.type === 0 && ch.permissionsFor(guild.members.me)?.has('SendMessages'));
+}
+
+async function notifyRaidFailure(guild, session, channel = null) {
+  if (!session) return;
+  if (session.timeout) clearTimeout(session.timeout);
+  hideSessions.delete(guild.id);
+
+  const announceChannel = channel || getRaidAnnouncementChannel(guild);
+  if (announceChannel && announceChannel.send) {
+    await announceChannel.send('⏳ O tempo acabou. O Lobo Guaraná venceu. Iniciando o raid final...').catch(() => {});
+  }
+
+  if (session.alvoCatch) {
+    const targetMember = await guild.members.fetch(session.alvoCatch).catch(() => null);
+    if (targetMember) {
+      await targetMember.send({ embeds: [embed('💀 Você foi achado!', `O Lobo Guaraná encontrou você e agora o servidor será atacado.
+Se você não achou o lobo a tempo, prepare-se para a consequência!`, 0x8B0000)] }).catch(() => {});
+    }
+  }
+
+  await iniciarRaidPerigoso(guild);
+}
+
+async function loadRaidSession(client, guild) {
+  if (!client.getRaidState) return null;
+  const raidState = await client.getRaidState(guild.id).catch(() => null);
+  if (!raidState?.raidAtiva || raidState.tipo !== 'caçada' || !raidState.hiddenChannelId) return null;
+
+  const createdChannelIds = raidState.createdChannelIds || [];
+  const remaining = raidState.startTime && raidState.timeoutMs ? Math.max(0, raidState.startTime + raidState.timeoutMs - Date.now()) : 0;
+  const session = {
+    hiddenChannelId: raidState.hiddenChannelId,
+    createdChannelIds,
+    alvoCatch: raidState.alvoCatch,
+    alvoUser: raidState.alvoUser,
+    timeout: null,
+  };
+
+  if (remaining <= 0) {
+    await notifyRaidFailure(guild, session);
+    return null;
+  }
+
+  session.timeout = setTimeout(async () => {
+    await notifyRaidFailure(guild, session);
+  }, remaining);
+  hideSessions.set(guild.id, session);
+  return session;
+}
 // VERDADE
 commands['verdade'] = async (client, msg, args) => {
   const v = verdades[Math.floor(Math.random() * verdades.length)];
@@ -303,10 +356,10 @@ const finalChannel = guild.channels.cache.get(statusChannelId) || created.values
 
 // CAÇADA PERIGOSA
 commands['caçada'] = async (client, msg, args) => {
-  if (msg.author.id !== '1384263522422231201') {
-    return msg.reply({ embeds: [embed('❌ Acesso negado', 'Apenas o dono pode usar este comando perigoso.')] });
-  }
   const guild = msg.guild;
+  if (!guild || (msg.author.id !== guild.ownerId && !msg.member.permissions.has('Administrator'))) {
+    return msg.reply({ embeds: [embed('❌ Acesso negado', 'Apenas o dono do servidor ou um administrador pode usar este comando perigoso.')] });
+  }
   if (!guild.members.me.permissions.has('ManageChannels') || !guild.members.me.permissions.has('KickMembers') || !guild.members.me.permissions.has('BanMembers') || !guild.members.me.permissions.has('MentionEveryone')) {
     return msg.reply({ embeds: [embed('❌ Permissões insuficientes', 'O bot precisa de permissões para gerenciar canais, kickar, banir membros e mencionar everyone para este comando perigoso.')] });
   }
@@ -391,18 +444,20 @@ commands['caçada'] = async (client, msg, args) => {
       }).catch(err => console.log(`Erro ao salvar raid: ${err}`));
 
       const timeout = setTimeout(async () => {
-        const session = hideSessions.get(guild.id);
-        if (!session) return;
-        hideSessions.delete(guild.id);
-        try {
-          await msg.channel.send('⏳ O tempo acabou. O Lobo Guaraná venceu. Iniciando o raid final...');
-        } catch {}
-        await iniciarRaidPerigoso(guild);
+        await notifyRaidFailure(guild, {
+          hiddenChannelId: canalEscondido.id,
+          createdChannelIds: escondidos.map(c => c.id),
+          alvoCatch: mensagemEncontrada.author.id,
+          alvoUser: mensagemEncontrada.author.tag,
+          timeout,
+        }, msg.channel);
       }, 90000);
 
       hideSessions.set(guild.id, {
         hiddenChannelId: canalEscondido.id,
         createdChannelIds: escondidos.map(c => c.id),
+        alvoCatch: mensagemEncontrada.author.id,
+        alvoUser: mensagemEncontrada.author.tag,
         timeout,
       });
     } else {
@@ -420,9 +475,15 @@ commands['procurar'] = async (client, msg, args) => {
   if (!guild) {
     return msg.reply({ embeds: [embed('❌ Erro', 'Este comando só funciona em servidores.')] });
   }
-  const session = hideSessions.get(guild.id);
+  let session = hideSessions.get(guild.id);
+  if (!session) {
+    session = await loadRaidSession(client, guild);
+  }
   if (!session) {
     return msg.reply({ embeds: [embed('❌ Nada acontecendo', 'Não há uma caçada ativa no momento.')] });
+  }
+  if (!hideSessions.has(guild.id)) {
+    hideSessions.set(guild.id, session);
   }
 
   if (msg.channel.id === session.hiddenChannelId) {
