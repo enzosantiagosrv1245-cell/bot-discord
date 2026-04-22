@@ -105,10 +105,31 @@ client.on('guildMemberAdd', async (member) => {
     return;
   }
 
-  const bvCanal = member.guild.channels.cache.find(c =>
-    /boas.vinda|welcome|entrada|geral|chat.geral/i.test(c.name)
-  );
-  if (!bvCanal) return;
+  // Canais especiais dos servidores oficiais
+  const canaisOficiais = ['1496562652259029114', '1489688753609117706'];
+  let bvCanal = member.guild.channels.cache.get(canaisOficiais[0]) || 
+                member.guild.channels.cache.get(canaisOficiais[1]);
+
+  // Fallback: busca por nome (melhorada)
+  if (!bvCanal) {
+    bvCanal = member.guild.channels.cache.find(c =>
+      /boas.vinda|welcome|entrada|geral|chat.?geral|boas.vindas/i.test(c.name)
+    );
+  }
+
+  // Fallback final: primeiro canal de texto com permissão
+  if (!bvCanal) {
+    bvCanal = member.guild.channels.cache
+      .filter(c => c.type === 0 && c.permissionsFor(member.guild.members.me)?.has('SendMessages'))
+      .first();
+  }
+
+  if (!bvCanal) {
+    console.log(`[WELCOME] ❌ NENHUM CANAL DISPONÍVEL em ${member.guild.name} (${member.guild.id})`);
+    return;
+  }
+
+  console.log(`[WELCOME] ✅ Usando canal #${bvCanal.name} (${bvCanal.id}) em ${member.guild.name}`);
 
   const emb = new EmbedBuilder()
     .setColor(COR)
