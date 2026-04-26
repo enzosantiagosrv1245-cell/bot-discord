@@ -137,7 +137,7 @@ async function handleTicketSelect(client, interaction) {
   if (existente) return interaction.reply({ content: `❌ Você já tem um ticket desse tipo aberto: ${existente}`, flags: 64 });
 
   const categoriaTicket = guild.channels.cache.find(c => c.type === ChannelType.GuildCategory && c.name.toLowerCase().includes('ticket'));
-  const cargosStaff = guild.roles.cache.filter(r => /mod|admin|suporte/i.test(r.name));
+  const cargosStaff = guild.roles.cache.filter(r => /guardião|mod|admin|equipe/i.test(r.name));
 
   const canal = await guild.channels.create({
     name: `ticket-${interaction.user.username.toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 15)}-${tipo.value}`,
