@@ -80,7 +80,7 @@ function checkSpam(userId) {
   return s.count >= 5;
 }
 
-// ─── Anti-raid ────────────────────────────────────────────────────────────────
+// ─── Anti-raid ────
 const joinLog = new Map();
 
 client.on('guildMemberAdd', async (member) => {
