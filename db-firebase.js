@@ -93,6 +93,41 @@ function getRankingXP(limit = 10) {
     .slice(0, limit);
 }
 
+const DEFAULT_GUILD_CONFIG = () => ({
+  prefix: 'r.',
+  welcomeEnabled: true,
+  welcomeChannelId: null,
+  welcomeMessage: 'Olá, {member}! Bem-vindo(a) ao servidor. Use {prefix}ajuda para ver os comandos.',
+});
+
+const _configCache = {};
+
+function getGuildConfig(guildId) {
+  if (!_configCache[guildId]) _configCache[guildId] = DEFAULT_GUILD_CONFIG();
+  return _configCache[guildId];
+}
+
+async function loadGuildConfig(guildId) {
+  const doc = await db.collection('configs').doc(guildId).get();
+  if (doc.exists) {
+    _configCache[guildId] = { ...DEFAULT_GUILD_CONFIG(), ...doc.data() };
+  } else {
+    _configCache[guildId] = DEFAULT_GUILD_CONFIG();
+  }
+  return _configCache[guildId];
+}
+
+function saveGuildConfig(guildId, data) {
+  _configCache[guildId] = { ...(getGuildConfig(guildId) || DEFAULT_GUILD_CONFIG()), ...data };
+  db.collection('configs').doc(guildId).set(_configCache[guildId], { merge: true }).catch(console.error);
+  return _configCache[guildId];
+}
+
+async function ensureGuildConfig(guildId) {
+  if (!_configCache[guildId]) await loadGuildConfig(guildId);
+  return getGuildConfig(guildId);
+}
+
 // Carrega todos os usuários do Firestore na inicialização
 async function initCache() {
   if (!getUser._cache) getUser._cache = {};
@@ -133,4 +168,11 @@ async function deleteRaidState(guildId) {
   }
 }
 
-module.exports = { getUser, saveUser, loadUser, ensureUser, getLoteria, saveLoteria, loadLoteria, getRankingMoedas, getRankingXP, initCache, saveRaidState, getRaidState, deleteRaidState };
+module.exports = {
+  getUser, saveUser, loadUser, ensureUser,
+  getLoteria, saveLoteria, loadLoteria,
+  getRankingMoedas, getRankingXP,
+  getGuildConfig, saveGuildConfig, ensureGuildConfig,
+  initCache,
+  saveRaidState, getRaidState, deleteRaidState
+};

