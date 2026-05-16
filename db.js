@@ -14,6 +14,9 @@ try {
   saveLoteria = db.saveLoteria;
   getRankingMoedas = db.getRankingMoedas;
   getRankingXP = db.getRankingXP;
+  getGuildConfig = db.getGuildConfig;
+  saveGuildConfig = db.saveGuildConfig;
+  ensureGuildConfig = db.ensureGuildConfig;
   initCache = db.initCache;
   loadDB = () => null;
   console.log('[TASD Bot] Firebase carregado.');
